@@ -1,0 +1,190 @@
+import json
+import sqlite3
+
+from paperlib.store import PaperStore
+
+
+def test_init_creates_tables(tmp_path):
+    db_path = tmp_path / "papers.sqlite"
+    store = PaperStore(db_path)
+    store.init_db()
+
+    with sqlite3.connect(db_path) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute(
+                "select name from sqlite_master where type = 'table'"
+            )
+        }
+
+    assert {"papers", "collections", "paper_collections"} <= tables
+
+
+def test_import_jsonl_upserts_papers_without_collections(tmp_path):
+    db_path = tmp_path / "papers.sqlite"
+    jsonl_path = tmp_path / "papers.jsonl"
+    jsonl_path.write_text(
+        json.dumps(
+            {
+                "openreview_id": "paper-1",
+                "forum": "paper-1",
+                "venue": "ICML 2026 regular",
+                "title": "Chart Reasoning",
+                "authors": ["A", "B"],
+                "abstract": "Reasoning over charts.",
+                "primary_area": "general_machine_learning->evaluation",
+                "keywords": ["chart", "reasoning"],
+                "pdf": "/pdf/paper-1.pdf",
+                "url": "https://openreview.net/forum?id=paper-1",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    store = PaperStore(db_path)
+    store.init_db()
+
+    result = store.import_papers_jsonl(jsonl_path)
+    paper = store.get_paper("paper-1")
+
+    assert result == {"imported": 1}
+    assert paper["title"] == "Chart Reasoning"
+    assert paper["authors"] == "A; B"
+    assert paper["collections"] == []
+
+
+def test_import_csv_upserts_papers(tmp_path):
+    db_path = tmp_path / "papers.sqlite"
+    csv_path = tmp_path / "papers.csv"
+    csv_path.write_text(
+        "openreview_id,forum,venue,title,authors,abstract,primary_area,keywords,pdf,url\n"
+        "paper-1,paper-1,ICML 2026 regular,Chart Reasoning,A; B,"
+        "Reasoning over charts.,evaluation,chart; reasoning,/pdf/paper-1.pdf,"
+        "https://openreview.net/forum?id=paper-1\n",
+        encoding="utf-8",
+    )
+    store = PaperStore(db_path)
+    store.init_db()
+
+    result = store.import_papers_csv(csv_path)
+    paper = store.get_paper("paper-1")
+
+    assert result == {"imported": 1}
+    assert paper["title"] == "Chart Reasoning"
+    assert paper["authors"] == "A; B"
+
+
+def test_import_tsv_creates_collection_and_memberships(tmp_path):
+    db_path = tmp_path / "papers.sqlite"
+    tsv_path = tmp_path / "keep.tsv"
+    tsv_path.write_text(
+        "id\turl\ttitle\tabstract\n"
+        "paper-1\thttps://openreview.net/forum?id=paper-1\tChart Reasoning\tA\n",
+        encoding="utf-8",
+    )
+    store = PaperStore(db_path)
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "Chart Reasoning"})
+
+    result = store.import_collection_tsv(tsv_path)
+    collections = store.list_collections()
+    paper = store.get_paper("paper-1")
+
+    assert result == {"collection": "keep", "papers": 1}
+    assert collections[0]["name"] == "keep"
+    assert collections[0]["paper_count"] == 1
+    assert paper["collections"] == [{"id": collections[0]["id"], "name": "keep"}]
+
+
+def test_import_tsv_creates_minimal_missing_paper(tmp_path):
+    db_path = tmp_path / "papers.sqlite"
+    tsv_path = tmp_path / "new.tsv"
+    tsv_path.write_text(
+        "id\turl\ttitle\tabstract\n"
+        "missing\thttps://openreview.net/forum?id=missing\tMissing Paper\tAbstract\n",
+        encoding="utf-8",
+    )
+    store = PaperStore(db_path)
+    store.init_db()
+
+    store.import_collection_tsv(tsv_path)
+    paper = store.get_paper("missing")
+
+    assert paper["title"] == "Missing Paper"
+    assert paper["abstract"] == "Abstract"
+    assert paper["collections"][0]["name"] == "new"
+
+
+def test_collection_crud_does_not_delete_papers(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "A"})
+    collection = store.create_collection("reading")
+    store.add_paper_to_collection("paper-1", collection["id"])
+
+    store.rename_collection(collection["id"], "priority")
+    assert store.list_collections()[0]["name"] == "priority"
+
+    store.delete_collection(collection["id"])
+    assert store.get_paper("paper-1")["title"] == "A"
+    assert store.get_paper("paper-1")["collections"] == []
+
+
+def test_list_papers_search_and_collection_filters(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "Chart QA", "abstract": "charts"})
+    store.upsert_paper({"id": "paper-2", "title": "Optimization", "abstract": "math"})
+    collection = store.create_collection("keep")
+    store.add_paper_to_collection("paper-1", collection["id"])
+
+    assert [p["id"] for p in store.list_papers(search="chart")] == ["paper-1"]
+    assert [p["id"] for p in store.list_papers(collection_id=collection["id"])] == [
+        "paper-1"
+    ]
+    assert [p["id"] for p in store.list_papers(uncollected=True)] == ["paper-2"]
+
+
+def test_list_papers_multiple_collection_filter(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "Chart QA"})
+    store.upsert_paper({"id": "paper-2", "title": "Doc QA"})
+    first = store.create_collection("first")
+    second = store.create_collection("second")
+    store.add_paper_to_collection("paper-1", first["id"])
+    store.add_paper_to_collection("paper-1", second["id"])
+    store.add_paper_to_collection("paper-2", first["id"])
+
+    assert [p["id"] for p in store.list_papers(multiple_collections=True)] == [
+        "paper-1"
+    ]
+
+
+def test_export_collection_tsv(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "Chart QA", "abstract": "charts"})
+    collection = store.create_collection("keep")
+    store.add_paper_to_collection("paper-1", collection["id"])
+
+    tsv = store.export_collection_tsv(collection["id"])
+
+    assert tsv.splitlines()[0] == "id\turl\tvenue\tprimary_area\ttitle\tabstract"
+    assert "paper-1" in tsv
+    assert "Chart QA" in tsv
+
+
+def test_export_all_collections_tsv(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "Chart QA"})
+    collection = store.create_collection("keep")
+    store.add_paper_to_collection("paper-1", collection["id"])
+
+    tsv = store.export_all_collections_tsv()
+
+    assert tsv.splitlines()[0] == (
+        "collection\tid\turl\tvenue\tprimary_area\ttitle\tabstract"
+    )
+    assert "keep\tpaper-1" in tsv

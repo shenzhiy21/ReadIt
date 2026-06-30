@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ICML 2026 Paper Collections</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <header class="app-header">
+          <h1>ICML 2026 Paper Collections</h1>
+          <p id="statusLine">Local SQLite library</p>
+        </header>
+
+        <section class="toolbar">
+          <button id="importPapersButton" type="button">Import all papers</button>
+          <label class="file-button">
+            Import TSV
+            <input id="collectionFileInput" type="file" accept=".tsv">
+          </label>
+          <a class="link-button" href="/api/export/collections">Export all</a>
+        </section>
+
+        <form id="createCollectionForm" class="create-form">
+          <input
+            id="newCollectionName"
+            type="text"
+            autocomplete="off"
+            placeholder="New collection"
+            aria-label="New collection name"
+          >
+          <button type="submit">Create</button>
+        </form>
+
+        <nav class="filter-list" aria-label="Paper filters">
+          <button class="filter active" data-filter="all" type="button">
+            All papers
+          </button>
+          <button class="filter" data-filter="uncollected" type="button">
+            Uncollected
+          </button>
+          <button class="filter" data-filter="multiple" type="button">
+            Multiple collections
+          </button>
+        </nav>
+
+        <section>
+          <div class="section-title">Collections</div>
+          <div id="collectionList" class="collection-list"></div>
+        </section>
+      </aside>
+
+      <main class="paper-panel">
+        <div class="search-row">
+          <input
+            id="searchInput"
+            type="search"
+            autocomplete="off"
+            placeholder="Search title, abstract, authors, venue, area"
+            aria-label="Search papers"
+          >
+          <button id="clearSearchButton" type="button">Clear</button>
+        </div>
+        <div class="list-meta">
+          <span id="paperCount">0 papers</span>
+          <span id="activeFilterLabel">All papers</span>
+        </div>
+        <div id="paperList" class="paper-list"></div>
+      </main>
+
+      <aside class="detail-panel">
+        <div id="paperDetail" class="paper-detail empty">
+          <h2>Select a paper</h2>
+          <p>Choose a paper from the list to manage its collections.</p>
+        </div>
+      </aside>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
