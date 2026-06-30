@@ -266,8 +266,8 @@ function renderDetail(paper) {
   const notesTextarea = document.createElement("textarea");
   notesTextarea.className = "notes-editor";
   notesTextarea.value = paper.notes_markdown || "";
-  notesTextarea.placeholder = "Write markdown notes for this paper";
-  notesTextarea.setAttribute("aria-label", "Paper markdown notes");
+  notesTextarea.placeholder = "Write notes for this paper";
+  notesTextarea.setAttribute("aria-label", "Paper notes");
 
   const notesActions = document.createElement("div");
   notesActions.className = "notes-actions";
@@ -276,16 +276,6 @@ function renderDetail(paper) {
   saveNotesButton.textContent = "Save notes";
   notesActions.append(saveNotesButton);
 
-  const previewTitle = document.createElement("div");
-  previewTitle.className = "notes-preview-title";
-  previewTitle.textContent = "Preview";
-  const notesPreview = document.createElement("div");
-  notesPreview.className = "notes-preview";
-
-  const updatePreview = () => {
-    notesPreview.innerHTML = renderMarkdown(notesTextarea.value);
-  };
-  notesTextarea.addEventListener("input", updatePreview);
   saveNotesButton.addEventListener("click", async () => {
     try {
       await saveNotes(paper.id, notesTextarea.value);
@@ -293,9 +283,8 @@ function renderDetail(paper) {
       showError(error);
     }
   });
-  updatePreview();
 
-  notesWrap.append(notesTextarea, notesActions, previewTitle, notesPreview);
+  notesWrap.append(notesTextarea, notesActions);
 
   dom.paperDetail.append(
     title,
@@ -328,170 +317,6 @@ async function saveNotes(paperId, notesMarkdown) {
   state.selectedPaperId = paper.id;
   renderDetail(paper);
   setStatus("Notes saved");
-}
-
-function renderMarkdown(markdown) {
-  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
-  const html = [];
-  let paragraph = [];
-  let listType = null;
-  let inCodeBlock = false;
-  let codeLines = [];
-  let blockquote = [];
-
-  const flushParagraph = () => {
-    if (paragraph.length === 0) {
-      return;
-    }
-    html.push(`<p>${renderInlineMarkdown(paragraph.join("\n")).replace(/\n/g, "<br>")}</p>`);
-    paragraph = [];
-  };
-
-  const closeList = () => {
-    if (!listType) {
-      return;
-    }
-    html.push(`</${listType}>`);
-    listType = null;
-  };
-
-  const flushBlockquote = () => {
-    if (blockquote.length === 0) {
-      return;
-    }
-    html.push(
-      `<blockquote>${renderInlineMarkdown(blockquote.join("\n")).replace(/\n/g, "<br>")}</blockquote>`
-    );
-    blockquote = [];
-  };
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    if (inCodeBlock) {
-      if (trimmed.startsWith("```")) {
-        html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
-        inCodeBlock = false;
-        codeLines = [];
-      } else {
-        codeLines.push(line);
-      }
-      continue;
-    }
-
-    if (trimmed.startsWith("```")) {
-      flushParagraph();
-      closeList();
-      flushBlockquote();
-      inCodeBlock = true;
-      codeLines = [];
-      continue;
-    }
-
-    if (!trimmed) {
-      flushParagraph();
-      closeList();
-      flushBlockquote();
-      continue;
-    }
-
-    const heading = /^(#{1,6})\s+(.+)$/.exec(trimmed);
-    if (heading) {
-      flushParagraph();
-      closeList();
-      flushBlockquote();
-      const level = heading[1].length;
-      html.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
-      continue;
-    }
-
-    const quote = /^>\s?(.*)$/.exec(line);
-    if (quote) {
-      flushParagraph();
-      closeList();
-      blockquote.push(quote[1]);
-      continue;
-    }
-
-    const unordered = /^\s*[-*]\s+(.+)$/.exec(line);
-    const ordered = /^\s*\d+[.)]\s+(.+)$/.exec(line);
-    if (unordered || ordered) {
-      flushParagraph();
-      flushBlockquote();
-      const nextListType = unordered ? "ul" : "ol";
-      if (listType && listType !== nextListType) {
-        closeList();
-      }
-      if (!listType) {
-        listType = nextListType;
-        html.push(`<${listType}>`);
-      }
-      html.push(`<li>${renderInlineMarkdown((unordered || ordered)[1])}</li>`);
-      continue;
-    }
-
-    closeList();
-    flushBlockquote();
-    paragraph.push(line);
-  }
-
-  flushParagraph();
-  closeList();
-  flushBlockquote();
-  if (inCodeBlock) {
-    html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
-  }
-
-  return html.join("") || '<p class="muted">No notes yet</p>';
-}
-
-function renderInlineMarkdown(text) {
-  const codeSpans = [];
-  let rendered = String(text).replace(/`([^`]+)`/g, (_, code) => {
-    const index = codeSpans.length;
-    codeSpans.push(`<code>${escapeHtml(code)}</code>`);
-    return `@@CODE${index}@@`;
-  });
-
-  rendered = escapeHtml(rendered);
-  rendered = rendered.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, url) => {
-    const safeUrl = safeMarkdownUrl(url);
-    if (!safeUrl) {
-      return label;
-    }
-    return `<a href="${safeUrl}" target="_blank" rel="noreferrer">${label}</a>`;
-  });
-  rendered = rendered.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-  rendered = rendered.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-
-  for (let index = 0; index < codeSpans.length; index += 1) {
-    rendered = rendered.replace(`@@CODE${index}@@`, codeSpans[index]);
-  }
-  return rendered;
-}
-
-function safeMarkdownUrl(url) {
-  const escaped = escapeHtml(url);
-  const lower = escaped.trim().toLowerCase();
-  if (
-    lower.startsWith("http://") ||
-    lower.startsWith("https://") ||
-    lower.startsWith("mailto:") ||
-    lower.startsWith("#") ||
-    lower.startsWith("/")
-  ) {
-    return escaped;
-  }
-  return "";
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 function addMeta(container, value) {
