@@ -25,6 +25,7 @@ class PaperStore:
                     pdf text not null default '',
                     keywords text not null default '',
                     notes_markdown text not null default '',
+                    is_read integer not null default 0,
                     raw_json text not null default '',
                     created_at text not null,
                     updated_at text not null
@@ -180,6 +181,20 @@ class PaperStore:
                 return None
         return self.get_paper(paper_id)
 
+    def update_paper_read_status(self, paper_id, is_read):
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                update papers
+                set is_read = ?, updated_at = ?
+                where id = ?
+                """,
+                (1 if is_read else 0, _now(), paper_id),
+            )
+            if cursor.rowcount == 0:
+                return None
+        return self.get_paper(paper_id)
+
     def list_papers(
         self,
         search="",
@@ -246,7 +261,7 @@ class PaperStore:
             )
         query = """
             select p.id, p.title, p.abstract, p.authors, p.venue, p.primary_area,
-                   p.url, p.pdf, p.keywords, p.notes_markdown, p.raw_json,
+                   p.url, p.pdf, p.keywords, p.notes_markdown, p.is_read, p.raw_json,
                    p.created_at, p.updated_at
             from papers p
         """
@@ -258,7 +273,7 @@ class PaperStore:
             params.extend([limit, offset])
 
         with self._connect() as conn:
-            papers = [dict(row) for row in conn.execute(query, params)]
+            papers = [_paper_dict(row) for row in conn.execute(query, params)]
             for paper in papers:
                 paper["collections"] = self._collections_for_paper(conn, paper["id"])
             return papers
@@ -324,7 +339,8 @@ class PaperStore:
             row = conn.execute(
                 """
                 select id, title, abstract, authors, venue, primary_area, url, pdf,
-                       keywords, notes_markdown, raw_json, created_at, updated_at
+                       keywords, notes_markdown, is_read, raw_json, created_at,
+                       updated_at
                 from papers
                 where id = ?
                 """,
@@ -332,7 +348,7 @@ class PaperStore:
             ).fetchone()
             if row is None:
                 return None
-            paper = dict(row)
+            paper = _paper_dict(row)
             paper["collections"] = self._collections_for_paper(conn, paper_id)
             return paper
 
@@ -350,6 +366,10 @@ class PaperStore:
         if "notes_markdown" not in paper_columns:
             conn.execute(
                 "alter table papers add column notes_markdown text not null default ''"
+            )
+        if "is_read" not in paper_columns:
+            conn.execute(
+                "alter table papers add column is_read integer not null default 0"
             )
 
     def _upsert_paper(self, conn, row):
@@ -475,6 +495,12 @@ def _join(value):
     if isinstance(value, list):
         return "; ".join(str(item) for item in value)
     return str(value or "")
+
+
+def _paper_dict(row):
+    paper = dict(row)
+    paper["is_read"] = bool(paper["is_read"])
+    return paper
 
 
 def _now():

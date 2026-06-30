@@ -122,6 +122,18 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
             return jsonify({"error": "Paper not found"}), 404
         return jsonify(paper)
 
+    @app.patch("/api/papers/<path:paper_id>/read")
+    def update_paper_read_status(paper_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or not isinstance(
+            payload.get("is_read"), bool
+        ):
+            return jsonify({"error": "is_read boolean is required"}), 400
+        paper = store.update_paper_read_status(paper_id, payload["is_read"])
+        if paper is None:
+            return jsonify({"error": "Paper not found"}), 404
+        return jsonify(paper)
+
     @app.post("/api/papers/<path:paper_id>/collections/<int:collection_id>")
     def add_paper_to_collection(paper_id, collection_id):
         store.add_paper_to_collection(paper_id, collection_id)

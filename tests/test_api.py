@@ -88,6 +88,32 @@ def test_api_updates_paper_notes(tmp_path):
     assert paper["notes_markdown"] == "# Notes\n\nImportant."
 
 
+def test_api_updates_paper_read_status(tmp_path):
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+    app.config["STORE"].upsert_paper({"id": "paper-1", "title": "Chart QA"})
+
+    response = client.patch("/api/papers/paper-1/read", json={"is_read": True})
+    paper = client.get("/api/papers/paper-1").get_json()
+    listed = client.get("/api/papers").get_json()["papers"]
+
+    assert response.status_code == 200
+    assert response.get_json()["is_read"] is True
+    assert paper["is_read"] is True
+    assert listed[0]["is_read"] is True
+
+
+def test_api_rejects_invalid_paper_read_status_payload(tmp_path):
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+    app.config["STORE"].upsert_paper({"id": "paper-1", "title": "Chart QA"})
+
+    response = client.patch("/api/papers/paper-1/read", json={"is_read": "true"})
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "is_read boolean is required"
+
+
 def test_api_returns_404_when_updating_missing_paper_notes(tmp_path):
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
     client = app.test_client()
@@ -96,6 +122,16 @@ def test_api_returns_404_when_updating_missing_paper_notes(tmp_path):
         "/api/papers/missing/notes",
         json={"notes_markdown": "note"},
     )
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "Paper not found"
+
+
+def test_api_returns_404_when_updating_missing_paper_read_status(tmp_path):
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+
+    response = client.patch("/api/papers/missing/read", json={"is_read": True})
 
     assert response.status_code == 404
     assert response.get_json()["error"] == "Paper not found"

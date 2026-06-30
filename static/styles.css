@@ -285,6 +285,29 @@ a:focus {
   padding: 5px 8px;
 }
 
+.read-tag {
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1;
+  min-height: 0;
+  padding: 5px 8px;
+}
+
+.read-tag.read {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.read-tag.unread {
+  background: #f8fafb;
+  color: var(--muted);
+}
+
+.detail-read-tag {
+  margin: 10px 0 0;
+}
+
 .paper-detail.empty {
   color: var(--muted);
 }

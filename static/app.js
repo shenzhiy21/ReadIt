@@ -167,6 +167,7 @@ function renderPapers() {
 
     const badges = document.createElement("div");
     badges.className = "badges";
+    badges.append(makeReadStatusTag(paper));
     const collections = paper.collections || [];
     if (collections.length === 0) {
       const badge = document.createElement("span");
@@ -209,6 +210,9 @@ function renderDetail(paper) {
   addMeta(meta, paper.venue);
   addMeta(meta, paper.primary_area);
   addMeta(meta, paper.authors);
+
+  const readStatus = makeReadStatusTag(paper);
+  readStatus.classList.add("detail-read-tag");
 
   const links = document.createElement("div");
   links.className = "detail-links";
@@ -289,6 +293,7 @@ function renderDetail(paper) {
   dom.paperDetail.append(
     title,
     meta,
+    readStatus,
     links,
     abstractTitle,
     abstract,
@@ -317,6 +322,35 @@ async function saveNotes(paperId, notesMarkdown) {
   state.selectedPaperId = paper.id;
   renderDetail(paper);
   setStatus("Notes saved");
+}
+
+function makeReadStatusTag(paper) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `read-tag ${paper.is_read ? "read" : "unread"}`;
+  button.textContent = paper.is_read ? "Read" : "UnRead";
+  button.setAttribute("aria-pressed", paper.is_read ? "true" : "false");
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    toggleReadStatus(paper).catch(showError);
+  });
+  return button;
+}
+
+async function toggleReadStatus(paper) {
+  const updated = await apiJson(`/api/papers/${encodeURIComponent(paper.id)}/read`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ is_read: !paper.is_read }),
+  });
+  state.papers = state.papers.map((item) =>
+    item.id === updated.id ? { ...item, ...updated } : item
+  );
+  if (state.selectedPaperId === updated.id) {
+    renderDetail(updated);
+  }
+  renderPapers();
+  setStatus(updated.is_read ? "Marked as Read" : "Marked as UnRead");
 }
 
 function addMeta(container, value) {

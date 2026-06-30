@@ -65,6 +65,21 @@ def test_updates_and_reads_paper_notes(tmp_path):
     assert paper["notes_markdown"] == "# Notes\n\n- read"
 
 
+def test_papers_default_to_unread_and_can_be_marked_read(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "Chart QA"})
+
+    assert store.get_paper("paper-1")["is_read"] is False
+
+    updated = store.update_paper_read_status("paper-1", True)
+    listed = store.list_papers()
+
+    assert updated["is_read"] is True
+    assert store.get_paper("paper-1")["is_read"] is True
+    assert listed[0]["is_read"] is True
+
+
 def test_upsert_preserves_existing_paper_notes(tmp_path):
     store = PaperStore(tmp_path / "papers.sqlite")
     store.init_db()
@@ -76,6 +91,19 @@ def test_upsert_preserves_existing_paper_notes(tmp_path):
 
     assert paper["title"] == "Updated"
     assert paper["notes_markdown"] == "keep this"
+
+
+def test_upsert_preserves_existing_paper_read_status(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "First"})
+    store.update_paper_read_status("paper-1", True)
+
+    store.upsert_paper({"id": "paper-1", "title": "Updated"})
+    paper = store.get_paper("paper-1")
+
+    assert paper["title"] == "Updated"
+    assert paper["is_read"] is True
 
 
 def test_init_migrates_existing_database_with_notes_column(tmp_path):
@@ -107,6 +135,38 @@ def test_init_migrates_existing_database_with_notes_column(tmp_path):
         columns = {row[1] for row in conn.execute("pragma table_info(papers)")}
 
     assert "notes_markdown" in columns
+
+
+def test_init_migrates_existing_database_with_read_status_column(tmp_path):
+    db_path = tmp_path / "papers.sqlite"
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(
+            """
+            create table papers (
+                id text primary key,
+                title text not null default '',
+                abstract text not null default '',
+                authors text not null default '',
+                venue text not null default '',
+                primary_area text not null default '',
+                url text not null default '',
+                pdf text not null default '',
+                keywords text not null default '',
+                notes_markdown text not null default '',
+                raw_json text not null default '',
+                created_at text not null,
+                updated_at text not null
+            );
+            """
+        )
+
+    store = PaperStore(db_path)
+    store.init_db()
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("pragma table_info(papers)")}
+
+    assert "is_read" in columns
 
 
 def test_import_csv_upserts_papers(tmp_path):
