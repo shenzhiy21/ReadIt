@@ -86,6 +86,7 @@ data/papers.sqlite
 ```
 
 It contains the paper library, collections, and paper-to-collection membership.
+It also contains per-paper markdown notes.
 
 ## Export
 

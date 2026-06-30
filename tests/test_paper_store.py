@@ -53,6 +53,62 @@ def test_import_jsonl_upserts_papers_without_collections(tmp_path):
     assert paper["collections"] == []
 
 
+def test_updates_and_reads_paper_notes(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "Chart QA"})
+
+    updated = store.update_paper_notes("paper-1", "# Notes\n\n- read")
+    paper = store.get_paper("paper-1")
+
+    assert updated["notes_markdown"] == "# Notes\n\n- read"
+    assert paper["notes_markdown"] == "# Notes\n\n- read"
+
+
+def test_upsert_preserves_existing_paper_notes(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "First"})
+    store.update_paper_notes("paper-1", "keep this")
+
+    store.upsert_paper({"id": "paper-1", "title": "Updated"})
+    paper = store.get_paper("paper-1")
+
+    assert paper["title"] == "Updated"
+    assert paper["notes_markdown"] == "keep this"
+
+
+def test_init_migrates_existing_database_with_notes_column(tmp_path):
+    db_path = tmp_path / "papers.sqlite"
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(
+            """
+            create table papers (
+                id text primary key,
+                title text not null default '',
+                abstract text not null default '',
+                authors text not null default '',
+                venue text not null default '',
+                primary_area text not null default '',
+                url text not null default '',
+                pdf text not null default '',
+                keywords text not null default '',
+                raw_json text not null default '',
+                created_at text not null,
+                updated_at text not null
+            );
+            """
+        )
+
+    store = PaperStore(db_path)
+    store.init_db()
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("pragma table_info(papers)")}
+
+    assert "notes_markdown" in columns
+
+
 def test_import_csv_upserts_papers(tmp_path):
     db_path = tmp_path / "papers.sqlite"
     csv_path = tmp_path / "papers.csv"

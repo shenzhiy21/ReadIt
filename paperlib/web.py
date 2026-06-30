@@ -112,6 +112,16 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
             return jsonify({"error": "Paper not found"}), 404
         return jsonify(paper)
 
+    @app.patch("/api/papers/<path:paper_id>/notes")
+    def update_paper_notes(paper_id):
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or "notes_markdown" not in payload:
+            return jsonify({"error": "notes_markdown is required"}), 400
+        paper = store.update_paper_notes(paper_id, payload["notes_markdown"])
+        if paper is None:
+            return jsonify({"error": "Paper not found"}), 404
+        return jsonify(paper)
+
     @app.post("/api/papers/<path:paper_id>/collections/<int:collection_id>")
     def add_paper_to_collection(paper_id, collection_id):
         store.add_paper_to_collection(paper_id, collection_id)

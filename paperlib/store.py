@@ -24,6 +24,7 @@ class PaperStore:
                     url text not null default '',
                     pdf text not null default '',
                     keywords text not null default '',
+                    notes_markdown text not null default '',
                     raw_json text not null default '',
                     created_at text not null,
                     updated_at text not null
@@ -47,6 +48,7 @@ class PaperStore:
                 );
                 """
             )
+            self._migrate_db(conn)
 
     def import_papers_jsonl(self, path):
         imported = 0
@@ -164,6 +166,20 @@ class PaperStore:
                 (paper_id, collection_id),
             )
 
+    def update_paper_notes(self, paper_id, notes_markdown):
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                update papers
+                set notes_markdown = ?, updated_at = ?
+                where id = ?
+                """,
+                (str(notes_markdown or ""), _now(), paper_id),
+            )
+            if cursor.rowcount == 0:
+                return None
+        return self.get_paper(paper_id)
+
     def list_papers(
         self,
         search="",
@@ -230,7 +246,8 @@ class PaperStore:
             )
         query = """
             select p.id, p.title, p.abstract, p.authors, p.venue, p.primary_area,
-                   p.url, p.pdf, p.keywords, p.raw_json, p.created_at, p.updated_at
+                   p.url, p.pdf, p.keywords, p.notes_markdown, p.raw_json,
+                   p.created_at, p.updated_at
             from papers p
         """
         if where:
@@ -307,7 +324,7 @@ class PaperStore:
             row = conn.execute(
                 """
                 select id, title, abstract, authors, venue, primary_area, url, pdf,
-                       keywords, raw_json, created_at, updated_at
+                       keywords, notes_markdown, raw_json, created_at, updated_at
                 from papers
                 where id = ?
                 """,
@@ -325,6 +342,15 @@ class PaperStore:
         conn.row_factory = sqlite3.Row
         conn.execute("pragma foreign_keys = on")
         return conn
+
+    def _migrate_db(self, conn):
+        paper_columns = {
+            row["name"] for row in conn.execute("pragma table_info(papers)")
+        }
+        if "notes_markdown" not in paper_columns:
+            conn.execute(
+                "alter table papers add column notes_markdown text not null default ''"
+            )
 
     def _upsert_paper(self, conn, row):
         now = _now()

@@ -72,6 +72,35 @@ def test_api_collection_membership_roundtrip(tmp_path):
     assert paper_after_remove["collections"] == []
 
 
+def test_api_updates_paper_notes(tmp_path):
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+    app.config["STORE"].upsert_paper({"id": "paper-1", "title": "Chart QA"})
+
+    response = client.patch(
+        "/api/papers/paper-1/notes",
+        json={"notes_markdown": "# Notes\n\nImportant."},
+    )
+    paper = client.get("/api/papers/paper-1").get_json()
+
+    assert response.status_code == 200
+    assert response.get_json()["notes_markdown"] == "# Notes\n\nImportant."
+    assert paper["notes_markdown"] == "# Notes\n\nImportant."
+
+
+def test_api_returns_404_when_updating_missing_paper_notes(tmp_path):
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+
+    response = client.patch(
+        "/api/papers/missing/notes",
+        json={"notes_markdown": "note"},
+    )
+
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "Paper not found"
+
+
 def test_api_imports_uploaded_tsv_collection(tmp_path):
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
     client = app.test_client()
