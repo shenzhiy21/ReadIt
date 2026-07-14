@@ -1,6 +1,24 @@
 from pathlib import Path
 
 
+def test_frontend_uses_generic_paper_library_title():
+    index_html = Path("static/index.html").read_text(encoding="utf-8")
+
+    assert "ICML 2026 Paper Collections" not in index_html
+    assert "Paper Collections" in index_html
+
+
+def test_frontend_contains_conference_filter_behavior():
+    index_html = Path("static/index.html").read_text(encoding="utf-8")
+    app_js = Path("static/app.js").read_text(encoding="utf-8")
+
+    assert "conferenceList" in index_html
+    assert "loadConferences" in app_js
+    assert "setConferenceFilter" in app_js
+    assert "/api/conferences" in app_js
+    assert "conference" in app_js
+
+
 def test_notes_ui_does_not_render_markdown_preview():
     app_js = Path("static/app.js").read_text(encoding="utf-8")
     styles_css = Path("static/styles.css").read_text(encoding="utf-8")

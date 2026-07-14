@@ -1,9 +1,11 @@
 const state = {
+  conferences: [],
   collections: [],
   papers: [],
   selectedPaperId: null,
   activeFilter: "all",
   activeCollectionId: null,
+  activeConference: "",
   query: "",
 };
 
@@ -13,6 +15,7 @@ const dom = {
   collectionFileInput: document.getElementById("collectionFileInput"),
   createCollectionForm: document.getElementById("createCollectionForm"),
   newCollectionName: document.getElementById("newCollectionName"),
+  conferenceList: document.getElementById("conferenceList"),
   collectionList: document.getElementById("collectionList"),
   searchInput: document.getElementById("searchInput"),
   clearSearchButton: document.getElementById("clearSearchButton"),
@@ -36,11 +39,18 @@ function setStatus(message) {
 }
 
 async function refreshAll() {
+  await loadConferences();
   await loadCollections();
   await loadPapers();
   if (state.selectedPaperId) {
     await selectPaper(state.selectedPaperId, { preserveList: true });
   }
+}
+
+async function loadConferences() {
+  const payload = await apiJson("/api/conferences");
+  state.conferences = payload.conferences || [];
+  renderConferences();
 }
 
 async function loadCollections() {
@@ -54,6 +64,9 @@ async function loadPapers() {
   if (state.query) {
     params.set("q", state.query);
   }
+  if (state.activeConference) {
+    params.set("conference", state.activeConference);
+  }
   if (state.activeFilter === "collection" && state.activeCollectionId) {
     params.set("collection_id", state.activeCollectionId);
   }
@@ -66,6 +79,39 @@ async function loadPapers() {
   const payload = await apiJson(`/api/papers?${params.toString()}`);
   state.papers = payload.papers;
   renderPapers();
+}
+
+function renderConferences() {
+  dom.conferenceList.replaceChildren();
+
+  const allButton = document.createElement("button");
+  allButton.type = "button";
+  allButton.className = "filter";
+  allButton.classList.toggle("active", state.activeConference === "");
+  allButton.textContent = "All conferences";
+  allButton.addEventListener("click", () => setConferenceFilter(""));
+  dom.conferenceList.append(allButton);
+
+  for (const conference of state.conferences) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "filter conference-filter";
+    button.classList.toggle("active", state.activeConference === conference.key);
+    button.addEventListener("click", () => setConferenceFilter(conference.key));
+
+    const name = document.createElement("span");
+    name.textContent = conference.name;
+    button.append(name);
+
+    if (!conference.metadata_available) {
+      const missing = document.createElement("span");
+      missing.className = "conference-status";
+      missing.textContent = "No local data";
+      button.append(missing);
+    }
+
+    dom.conferenceList.append(button);
+  }
 }
 
 function renderCollections() {
@@ -157,6 +203,7 @@ function renderPapers() {
 
     const meta = document.createElement("div");
     meta.className = "paper-meta";
+    addMeta(meta, conferenceName(paper.conference));
     addMeta(meta, paper.venue);
     addMeta(meta, paper.primary_area);
     addMeta(meta, paper.authors);
@@ -207,6 +254,7 @@ function renderDetail(paper) {
   const meta = document.createElement("div");
   meta.className = "paper-meta";
   addMeta(meta, paper.id);
+  addMeta(meta, conferenceName(paper.conference));
   addMeta(meta, paper.venue);
   addMeta(meta, paper.primary_area);
   addMeta(meta, paper.authors);
@@ -409,6 +457,12 @@ function setCollectionFilter(collection) {
   loadPapers().catch(showError);
 }
 
+function setConferenceFilter(conferenceKey) {
+  state.activeConference = conferenceKey;
+  renderConferences();
+  loadPapers().catch(showError);
+}
+
 function activeFilterLabel() {
   if (state.activeFilter === "uncollected") {
     return "Uncollected";
@@ -423,6 +477,23 @@ function activeFilterLabel() {
     return collection ? collection.name : "Collection";
   }
   return "All papers";
+}
+
+function conferenceName(key) {
+  if (!key) {
+    return "";
+  }
+  const conference = state.conferences.find((item) => item.key === key);
+  return conference ? conference.name : key;
+}
+
+function importSummary(result) {
+  const entries = Object.entries(result.conferences || {});
+  if (entries.length === 0) {
+    return `Imported ${result.imported} papers`;
+  }
+  const counts = entries.map(([key, count]) => `${conferenceName(key) || key}: ${count}`);
+  return `Imported ${result.imported} papers (${counts.join(", ")})`;
 }
 
 async function renameCollection(collection) {
@@ -463,9 +534,13 @@ function showError(error) {
 dom.importPapersButton.addEventListener("click", async () => {
   try {
     setStatus("Importing papers...");
-    const result = await apiJson("/api/import/papers", { method: "POST" });
+    const result = await apiJson("/api/import/papers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conference: "all" }),
+    });
     await refreshAll();
-    setStatus(`Imported ${result.imported} papers`);
+    setStatus(importSummary(result));
   } catch (error) {
     showError(error);
   }

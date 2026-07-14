@@ -10,7 +10,7 @@ def test_serves_frontend(tmp_path):
     response = client.get("/")
 
     assert response.status_code == 200
-    assert b"ICML 2026 Paper Collections" in response.data
+    assert b"Paper Collections" in response.data
 
 
 def test_api_imports_default_papers(tmp_path):

@@ -152,15 +152,27 @@ a:focus {
 }
 
 .filter-list,
+.conference-list,
 .collection-list {
   display: grid;
   gap: 6px;
 }
 
 .filter,
+.conference-filter,
 .collection-item {
   justify-content: flex-start;
   width: 100%;
+}
+
+.conference-filter {
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.conference-status {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .section-title {
