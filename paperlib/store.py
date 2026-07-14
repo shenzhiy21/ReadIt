@@ -210,65 +210,13 @@ class PaperStore:
         limit=None,
         offset=0,
     ):
-        where = []
-        params = []
-        search = (search or "").strip().lower()
-        if search:
-            params.extend([f"%{search}%"] * 7)
-            where.append(
-                """
-                (
-                    lower(p.id) like ?
-                    or lower(p.title) like ?
-                    or lower(p.abstract) like ?
-                    or lower(p.authors) like ?
-                    or lower(p.venue) like ?
-                    or lower(p.primary_area) like ?
-                    or exists (
-                        select 1
-                        from paper_collections pc_search
-                        join collections c_search
-                          on c_search.id = pc_search.collection_id
-                        where pc_search.paper_id = p.id
-                          and lower(c_search.name) like ?
-                    )
-                )
-                """
-            )
-        if collection_id is not None:
-            params.append(collection_id)
-            where.append(
-                """
-                exists (
-                    select 1 from paper_collections pc_filter
-                    where pc_filter.paper_id = p.id
-                      and pc_filter.collection_id = ?
-                )
-                """
-            )
-        if uncollected:
-            where.append(
-                """
-                not exists (
-                    select 1 from paper_collections pc_empty
-                    where pc_empty.paper_id = p.id
-                )
-                """
-            )
-        if multiple_collections:
-            where.append(
-                """
-                (
-                    select count(*)
-                    from paper_collections pc_multi
-                    where pc_multi.paper_id = p.id
-                ) > 1
-                """
-            )
-        conference = (conference or "").strip()
-        if conference:
-            params.append(conference)
-            where.append("p.conference = ?")
+        where, params = _paper_filter_clauses(
+            search=search,
+            collection_id=collection_id,
+            uncollected=uncollected,
+            multiple_collections=multiple_collections,
+            conference=conference,
+        )
         query = """
             select p.id, p.title, p.abstract, p.authors, p.conference, p.venue,
                    p.primary_area, p.url, p.pdf, p.keywords, p.notes_markdown,
@@ -287,6 +235,27 @@ class PaperStore:
             for paper in papers:
                 paper["collections"] = self._collections_for_paper(conn, paper["id"])
             return papers
+
+    def count_papers(
+        self,
+        search="",
+        collection_id=None,
+        uncollected=False,
+        multiple_collections=False,
+        conference="",
+    ):
+        where, params = _paper_filter_clauses(
+            search=search,
+            collection_id=collection_id,
+            uncollected=uncollected,
+            multiple_collections=multiple_collections,
+            conference=conference,
+        )
+        query = "select count(*) from papers p"
+        if where:
+            query += " where " + " and ".join(where)
+        with self._connect() as conn:
+            return conn.execute(query, params).fetchone()[0]
 
     def export_collection_tsv(self, collection_id):
         with self._connect() as conn:
@@ -515,6 +484,75 @@ def _join(value):
     if isinstance(value, list):
         return "; ".join(str(item) for item in value)
     return str(value or "")
+
+
+def _paper_filter_clauses(
+    search="",
+    collection_id=None,
+    uncollected=False,
+    multiple_collections=False,
+    conference="",
+):
+    where = []
+    params = []
+    search = (search or "").strip().lower()
+    if search:
+        params.extend([f"%{search}%"] * 7)
+        where.append(
+            """
+            (
+                lower(p.id) like ?
+                or lower(p.title) like ?
+                or lower(p.abstract) like ?
+                or lower(p.authors) like ?
+                or lower(p.venue) like ?
+                or lower(p.primary_area) like ?
+                or exists (
+                    select 1
+                    from paper_collections pc_search
+                    join collections c_search
+                      on c_search.id = pc_search.collection_id
+                    where pc_search.paper_id = p.id
+                      and lower(c_search.name) like ?
+                )
+            )
+            """
+        )
+    if collection_id is not None:
+        params.append(collection_id)
+        where.append(
+            """
+            exists (
+                select 1 from paper_collections pc_filter
+                where pc_filter.paper_id = p.id
+                  and pc_filter.collection_id = ?
+            )
+            """
+        )
+    if uncollected:
+        where.append(
+            """
+            not exists (
+                select 1 from paper_collections pc_empty
+                where pc_empty.paper_id = p.id
+            )
+            """
+        )
+    if multiple_collections:
+        where.append(
+            """
+            (
+                select count(*)
+                from paper_collections pc_multi
+                where pc_multi.paper_id = p.id
+            ) > 1
+            """
+        )
+    conference = (conference or "").strip()
+    if conference:
+        params.append(conference)
+        where.append("p.conference = ?")
+    return where, params
 
 
 def _paper_dict(row):

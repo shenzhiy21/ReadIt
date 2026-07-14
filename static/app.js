@@ -1,7 +1,11 @@
+const PAGE_SIZE = 10;
+
 const state = {
   conferences: [],
   collections: [],
   papers: [],
+  totalPapers: 0,
+  page: 0,
   selectedPaperId: null,
   activeFilter: "all",
   activeCollectionId: null,
@@ -22,6 +26,7 @@ const dom = {
   paperCount: document.getElementById("paperCount"),
   activeFilterLabel: document.getElementById("activeFilterLabel"),
   paperList: document.getElementById("paperList"),
+  paginationControls: document.getElementById("paginationControls"),
   paperDetail: document.getElementById("paperDetail"),
 };
 
@@ -60,7 +65,8 @@ async function loadCollections() {
 
 async function loadPapers() {
   const params = new URLSearchParams();
-  params.set("limit", "10000");
+  params.set("limit", String(PAGE_SIZE));
+  params.set("offset", String(state.page * PAGE_SIZE));
   if (state.query) {
     params.set("q", state.query);
   }
@@ -78,6 +84,13 @@ async function loadPapers() {
   }
   const payload = await apiJson(`/api/papers?${params.toString()}`);
   state.papers = payload.papers;
+  state.totalPapers = payload.total || 0;
+  const maxPage = Math.max(0, Math.ceil(state.totalPapers / PAGE_SIZE) - 1);
+  if (state.page > maxPage) {
+    state.page = maxPage;
+    await loadPapers();
+    return;
+  }
   renderPapers();
 }
 
@@ -172,15 +185,17 @@ function renderCollections() {
 }
 
 function renderPapers() {
-  dom.paperCount.textContent = `${state.papers.length} papers`;
+  dom.paperCount.textContent = paperCountLabel();
   dom.activeFilterLabel.textContent = activeFilterLabel();
   dom.paperList.replaceChildren();
+  dom.paginationControls.replaceChildren();
 
   if (state.papers.length === 0) {
     const empty = document.createElement("p");
     empty.className = "muted";
     empty.textContent = "No papers match the current view";
     dom.paperList.append(empty);
+    renderPagination();
     return;
   }
 
@@ -233,6 +248,53 @@ function renderPapers() {
     card.append(title, meta, abstract, badges);
     dom.paperList.append(card);
   }
+  renderPagination();
+}
+
+function renderPagination() {
+  if (state.totalPapers <= PAGE_SIZE) {
+    return;
+  }
+
+  const previousButton = document.createElement("button");
+  previousButton.type = "button";
+  previousButton.textContent = "Previous";
+  previousButton.disabled = state.page === 0;
+  previousButton.addEventListener("click", () => {
+    if (state.page === 0) {
+      return;
+    }
+    state.page -= 1;
+    loadPapers().catch(showError);
+  });
+
+  const pageLabel = document.createElement("span");
+  pageLabel.className = "pagination-label";
+  const pageCount = Math.ceil(state.totalPapers / PAGE_SIZE);
+  pageLabel.textContent = `Page ${state.page + 1} of ${pageCount}`;
+
+  const nextButton = document.createElement("button");
+  nextButton.type = "button";
+  nextButton.textContent = "Next";
+  nextButton.disabled = (state.page + 1) * PAGE_SIZE >= state.totalPapers;
+  nextButton.addEventListener("click", () => {
+    if ((state.page + 1) * PAGE_SIZE >= state.totalPapers) {
+      return;
+    }
+    state.page += 1;
+    loadPapers().catch(showError);
+  });
+
+  dom.paginationControls.append(previousButton, pageLabel, nextButton);
+}
+
+function paperCountLabel() {
+  if (state.totalPapers === 0) {
+    return "0 papers";
+  }
+  const start = state.page * PAGE_SIZE + 1;
+  const end = start + state.papers.length - 1;
+  return `${start}-${end} of ${state.totalPapers} papers`;
 }
 
 async function selectPaper(paperId, options = {}) {
@@ -440,6 +502,7 @@ function truncate(text, maxLength) {
 function setSystemFilter(filter) {
   state.activeFilter = filter;
   state.activeCollectionId = null;
+  state.page = 0;
   document.querySelectorAll(".filter").forEach((button) => {
     button.classList.toggle("active", button.dataset.filter === filter);
   });
@@ -450,6 +513,7 @@ function setSystemFilter(filter) {
 function setCollectionFilter(collection) {
   state.activeFilter = "collection";
   state.activeCollectionId = collection.id;
+  state.page = 0;
   document.querySelectorAll(".filter").forEach((button) => {
     button.classList.remove("active");
   });
@@ -459,6 +523,7 @@ function setCollectionFilter(collection) {
 
 function setConferenceFilter(conferenceKey) {
   state.activeConference = conferenceKey;
+  state.page = 0;
   renderConferences();
   loadPapers().catch(showError);
 }
@@ -590,12 +655,14 @@ dom.createCollectionForm.addEventListener("submit", async (event) => {
 
 dom.searchInput.addEventListener("input", () => {
   state.query = dom.searchInput.value.trim();
+  state.page = 0;
   loadPapers().catch(showError);
 });
 
 dom.clearSearchButton.addEventListener("click", () => {
   dom.searchInput.value = "";
   state.query = "";
+  state.page = 0;
   loadPapers().catch(showError);
 });
 

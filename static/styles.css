@@ -53,6 +53,12 @@ button:hover,
   border-color: var(--accent);
 }
 
+button:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 button.primary,
 .filter.active,
 .conference-filter.active,
@@ -249,6 +255,20 @@ a:focus {
 .paper-list {
   display: grid;
   gap: 10px;
+}
+
+.pagination-controls {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.pagination-label {
+  color: var(--muted);
+  min-width: 88px;
+  text-align: center;
 }
 
 .paper-card {

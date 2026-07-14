@@ -43,3 +43,14 @@ def test_read_status_ui_uses_shared_toggle_and_api_endpoint():
     assert "toggleReadStatus" in app_js
     assert "/read" in app_js
     assert "read-tag" in styles_css
+
+
+def test_frontend_pages_paper_list_in_batches_of_ten():
+    index_html = Path("static/index.html").read_text(encoding="utf-8")
+    app_js = Path("static/app.js").read_text(encoding="utf-8")
+
+    assert 'id="paginationControls"' in index_html
+    assert "const PAGE_SIZE = 10;" in app_js
+    assert 'params.set("limit", String(PAGE_SIZE));' in app_js
+    assert 'params.set("offset", String(state.page * PAGE_SIZE));' in app_js
+    assert 'params.set("limit", "10000");' not in app_js

@@ -117,16 +117,25 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
         multiple = _truthy(request.args.get("multiple"))
         limit = request.args.get("limit", default=250, type=int)
         offset = request.args.get("offset", default=0, type=int)
+        search = request.args.get("q", "")
+        conference = request.args.get("conference", "")
         papers = store.list_papers(
-            search=request.args.get("q", ""),
+            search=search,
             collection_id=collection_id,
             uncollected=uncollected,
             multiple_collections=multiple,
-            conference=request.args.get("conference", ""),
+            conference=conference,
             limit=limit,
             offset=offset,
         )
-        return jsonify({"papers": papers})
+        total = store.count_papers(
+            search=search,
+            collection_id=collection_id,
+            uncollected=uncollected,
+            multiple_collections=multiple,
+            conference=conference,
+        )
+        return jsonify({"papers": papers, "total": total})
 
     @app.get("/api/papers/<path:paper_id>")
     def get_paper(paper_id):

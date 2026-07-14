@@ -115,6 +115,21 @@ def test_api_lists_papers_filtered_by_conference(tmp_path):
     assert [paper["id"] for paper in response.get_json()["papers"]] == ["paper-1"]
 
 
+def test_api_lists_papers_with_total_for_pagination(tmp_path):
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+    store = app.config["STORE"]
+    for index in range(12):
+        store.upsert_paper({"id": f"paper-{index:02d}", "title": f"Paper {index:02d}"})
+
+    response = client.get("/api/papers?limit=10&offset=10")
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["total"] == 12
+    assert [paper["id"] for paper in payload["papers"]] == ["paper-10", "paper-11"]
+
+
 def test_api_lists_conferences_with_metadata_presence(tmp_path):
     raw_dir = tmp_path / "raw" / "iclr2026"
     raw_dir.mkdir(parents=True)
