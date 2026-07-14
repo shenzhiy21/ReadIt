@@ -50,29 +50,37 @@ python app.py
 
 ## Fetch Paper Metadata
 
-Fetch ICML 2026 papers from OpenReview:
+Fetch configured conference metadata:
 
 ```powershell
+python tools/fetch_papers.py iclr2026
 python tools/fetch_papers.py icml2026
 ```
 
-This writes:
+Each command writes:
 
 ```text
-data/raw/icml2026/accepted_papers.jsonl
-data/raw/icml2026/accepted_papers.csv
-data/raw/icml2026/summary.json
+data/raw/<conference>/accepted_papers.jsonl
+data/raw/<conference>/accepted_papers.csv
+data/raw/<conference>/summary.json
 ```
+
+The ICLR 2026 fetch first tries OpenReview's API. If that API requires challenge
+verification, it falls back to a public OpenReview-derived JSONL snapshot and
+filters to main-conference accepted papers only.
 
 To add another OpenReview conference, add a configuration entry in
 `paperlib/crawlers/conferences.py`.
 
 ## Import In The Web App
 
-- Click `Import all papers` to load the default conference metadata from
+- Click `Import all papers` to load all locally available configured conference
+  metadata, such as `data/raw/iclr2026/accepted_papers.jsonl` and
   `data/raw/icml2026/accepted_papers.jsonl`.
-- If the JSONL file is missing, the app falls back to
-  `data/raw/icml2026/accepted_papers.csv`.
+- If a conference JSONL file is missing, the app falls back to that conference's
+  `accepted_papers.csv`.
+- Use the conference filter in the sidebar to switch between all papers, ICLR
+  2026, and ICML 2026.
 - Click `Import TSV` to import any `.tsv` file as a collection.
 - The TSV filename becomes the collection name.
 - Importing the same TSV filename again refreshes that collection membership.
