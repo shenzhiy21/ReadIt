@@ -8,6 +8,8 @@ class OpenReviewConference:
     invitation: str
     venues: tuple[str, ...]
     venueid: str | None = None
+    fallback_jsonl_url: str | None = None
+    fallback_status_venues: tuple[tuple[str, str], ...] = ()
 
 
 CONFERENCES = {
@@ -21,6 +23,14 @@ CONFERENCES = {
             "ICLR 2026 Oral",
         ),
         venueid="ICLR.cc/2026/Conference",
+        fallback_jsonl_url=(
+            "https://raw.githubusercontent.com/papercopilot/openreview/main/"
+            "venues/iclr/iclr2026.jsonl"
+        ),
+        fallback_status_venues=(
+            ("Poster", "ICLR 2026 Poster"),
+            ("Oral", "ICLR 2026 Oral"),
+        ),
     ),
     "icml2026": OpenReviewConference(
         key="icml2026",

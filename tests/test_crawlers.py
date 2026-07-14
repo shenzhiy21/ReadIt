@@ -1,7 +1,12 @@
 import pytest
 
 from paperlib.crawlers.conferences import get_conference
-from paperlib.crawlers.openreview import build_summary, normalize_note, output_paths
+from paperlib.crawlers.openreview import (
+    build_summary,
+    normalize_fallback_row,
+    normalize_note,
+    output_paths,
+)
 
 
 def test_get_conference_returns_icml2026_config():
@@ -55,6 +60,32 @@ def test_normalize_note_extracts_openreview_fields():
     assert paper["openreview_id"] == "abc"
     assert paper["title"] == "Chart QA"
     assert paper["authors"] == ["A", "B"]
+    assert paper["url"] == "https://openreview.net/forum?id=abc"
+
+
+def test_normalize_fallback_row_maps_accepted_jsonl_fields():
+    row = {
+        "id": "abc",
+        "status": "Poster",
+        "title": "Chart QA",
+        "author": "A;B",
+        "authorids": "~A1;~B1",
+        "abstract": "Abstract",
+        "primary_area": "evaluation",
+        "keywords": "chart;qa",
+        "tldr": "Short",
+        "site": "https://openreview.net/forum?id=abc",
+    }
+
+    paper = normalize_fallback_row(row, "ICLR 2026 Poster")
+
+    assert paper["openreview_id"] == "abc"
+    assert paper["forum"] == "abc"
+    assert paper["venue"] == "ICLR 2026 Poster"
+    assert paper["title"] == "Chart QA"
+    assert paper["authors"] == ["A", "B"]
+    assert paper["authorids"] == ["~A1", "~B1"]
+    assert paper["keywords"] == ["chart", "qa"]
     assert paper["url"] == "https://openreview.net/forum?id=abc"
 
 

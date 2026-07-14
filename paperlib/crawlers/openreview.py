@@ -1,6 +1,7 @@
 import csv
 import json
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -62,6 +63,25 @@ def normalize_note(note):
     }
 
 
+def normalize_fallback_row(row, venue):
+    paper_id = row.get("id", "")
+    return {
+        "openreview_id": paper_id,
+        "forum": paper_id,
+        "number": row.get("number", ""),
+        "venue": venue,
+        "title": row.get("title", "") or "",
+        "authors": _split_semicolon(row.get("author", "")),
+        "authorids": _split_semicolon(row.get("authorids", "")),
+        "abstract": row.get("abstract", "") or "",
+        "primary_area": row.get("primary_area", "") or "",
+        "keywords": _split_semicolon(row.get("keywords", "")),
+        "tldr": row.get("tldr", "") or "",
+        "pdf": row.get("pdf", "") or "",
+        "url": row.get("site", "") or f"https://openreview.net/forum?id={paper_id}",
+    }
+
+
 def fetch_page(api_base, invitation, venue, limit, offset):
     params = {
         "invitation": invitation,
@@ -119,12 +139,17 @@ def fetch_by_venueid(config, limit=LIMIT):
 def fetch_conference(config, data_dir):
     seen = {}
     counts_by_query = {}
-    for venue in config.venues:
-        notes = fetch_venue(config, venue)
-        counts_by_query[venue] = len(notes)
-        for note in notes:
-            paper = normalize_note(note)
-            seen[paper["openreview_id"]] = paper
+    try:
+        for venue in config.venues:
+            notes = fetch_venue(config, venue)
+            counts_by_query[venue] = len(notes)
+            for note in notes:
+                paper = normalize_note(note)
+                seen[paper["openreview_id"]] = paper
+    except urllib.error.HTTPError as error:
+        if error.code != 403 or not config.fallback_jsonl_url:
+            raise
+        return fetch_conference_from_fallback_jsonl(config, data_dir, error)
 
     papers = sorted(
         seen.values(),
@@ -147,6 +172,39 @@ def fetch_conference(config, data_dir):
             "missing_from_queried_venues": sorted(venueid_ids - queried_ids),
             "extra_from_queried_venues": sorted(queried_ids - venueid_ids),
         }
+    write_outputs(papers, paths, summary)
+    return summary
+
+
+def fetch_conference_from_fallback_jsonl(config, data_dir, source_error=None):
+    status_venues = dict(config.fallback_status_venues)
+    seen = {}
+    counts_by_query = {venue: 0 for venue in status_venues.values()}
+    with urllib.request.urlopen(config.fallback_jsonl_url, timeout=120) as response:
+        for raw in response:
+            if not raw.strip():
+                continue
+            row = json.loads(raw)
+            venue = status_venues.get(row.get("status", ""))
+            if not venue:
+                continue
+            paper = normalize_fallback_row(row, venue)
+            seen[paper["openreview_id"]] = paper
+            counts_by_query[venue] += 1
+
+    papers = sorted(
+        seen.values(),
+        key=lambda item: (
+            item.get("venue", ""),
+            str(item.get("title", "")).casefold(),
+            item.get("openreview_id", ""),
+        ),
+    )
+    paths = output_paths(data_dir, config.key)
+    summary = build_summary(config, papers, counts_by_query, paths)
+    summary["fallback_source"] = config.fallback_jsonl_url
+    if source_error is not None:
+        summary["fallback_reason"] = f"OpenReview API returned HTTP {source_error.code}"
     write_outputs(papers, paths, summary)
     return summary
 
@@ -215,3 +273,9 @@ def write_outputs(papers, paths, summary):
         json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def _split_semicolon(value):
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item)]
+    return [item.strip() for item in str(value or "").split(";") if item.strip()]
