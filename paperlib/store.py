@@ -19,6 +19,7 @@ class PaperStore:
                     title text not null default '',
                     abstract text not null default '',
                     authors text not null default '',
+                    conference text not null default '',
                     venue text not null default '',
                     primary_area text not null default '',
                     url text not null default '',
@@ -201,6 +202,7 @@ class PaperStore:
         collection_id=None,
         uncollected=False,
         multiple_collections=False,
+        conference="",
         limit=None,
         offset=0,
     ):
@@ -259,10 +261,14 @@ class PaperStore:
                 ) > 1
                 """
             )
+        conference = (conference or "").strip()
+        if conference:
+            params.append(conference)
+            where.append("p.conference = ?")
         query = """
-            select p.id, p.title, p.abstract, p.authors, p.venue, p.primary_area,
-                   p.url, p.pdf, p.keywords, p.notes_markdown, p.is_read, p.raw_json,
-                   p.created_at, p.updated_at
+            select p.id, p.title, p.abstract, p.authors, p.conference, p.venue,
+                   p.primary_area, p.url, p.pdf, p.keywords, p.notes_markdown,
+                   p.is_read, p.raw_json, p.created_at, p.updated_at
             from papers p
         """
         if where:
@@ -338,9 +344,9 @@ class PaperStore:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                select id, title, abstract, authors, venue, primary_area, url, pdf,
-                       keywords, notes_markdown, is_read, raw_json, created_at,
-                       updated_at
+                select id, title, abstract, authors, conference, venue,
+                       primary_area, url, pdf, keywords, notes_markdown, is_read,
+                       raw_json, created_at, updated_at
                 from papers
                 where id = ?
                 """,
@@ -371,6 +377,10 @@ class PaperStore:
             conn.execute(
                 "alter table papers add column is_read integer not null default 0"
             )
+        if "conference" not in paper_columns:
+            conn.execute(
+                "alter table papers add column conference text not null default ''"
+            )
 
     def _upsert_paper(self, conn, row):
         now = _now()
@@ -380,6 +390,7 @@ class PaperStore:
             "title": row.get("title", "") or "",
             "abstract": row.get("abstract", "") or "",
             "authors": _join(row.get("authors", "")),
+            "conference": row.get("conference", "") or "",
             "venue": row.get("venue", "") or "",
             "primary_area": row.get("primary_area", "") or "",
             "url": row.get("url", "") or "",
@@ -392,12 +403,13 @@ class PaperStore:
         conn.execute(
             """
             insert into papers (
-                id, title, abstract, authors, venue, primary_area, url, pdf,
-                keywords, raw_json, created_at, updated_at
+                id, title, abstract, authors, conference, venue, primary_area,
+                url, pdf, keywords, raw_json, created_at, updated_at
             )
             values (
-                :id, :title, :abstract, :authors, :venue, :primary_area, :url,
-                :pdf, :keywords, :raw_json, :created_at, :updated_at
+                :id, :title, :abstract, :authors, :conference, :venue,
+                :primary_area, :url, :pdf, :keywords, :raw_json, :created_at,
+                :updated_at
             )
             on conflict(id) do update set
                 title = case
@@ -411,6 +423,10 @@ class PaperStore:
                 authors = case
                     when excluded.authors != '' then excluded.authors
                     else papers.authors
+                end,
+                conference = case
+                    when excluded.conference != '' then excluded.conference
+                    else papers.conference
                 end,
                 venue = case
                     when excluded.venue != '' then excluded.venue

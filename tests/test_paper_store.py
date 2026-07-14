@@ -106,6 +106,57 @@ def test_upsert_preserves_existing_paper_read_status(tmp_path):
     assert paper["is_read"] is True
 
 
+def test_paper_store_records_conference(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+
+    store.upsert_paper(
+        {
+            "id": "paper-1",
+            "title": "Chart QA",
+            "conference": "iclr2026",
+        }
+    )
+
+    paper = store.get_paper("paper-1")
+
+    assert paper["conference"] == "iclr2026"
+
+
+def test_upsert_preserves_notes_and_read_status_when_conference_updates(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "Old"})
+    store.update_paper_notes("paper-1", "keep this")
+    store.update_paper_read_status("paper-1", True)
+
+    store.upsert_paper(
+        {
+            "id": "paper-1",
+            "title": "New",
+            "conference": "icml2026",
+        }
+    )
+
+    paper = store.get_paper("paper-1")
+
+    assert paper["title"] == "New"
+    assert paper["conference"] == "icml2026"
+    assert paper["notes_markdown"] == "keep this"
+    assert paper["is_read"] is True
+
+
+def test_list_papers_filters_by_conference(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    store.upsert_paper({"id": "paper-1", "title": "A", "conference": "iclr2026"})
+    store.upsert_paper({"id": "paper-2", "title": "B", "conference": "icml2026"})
+
+    papers = store.list_papers(conference="iclr2026")
+
+    assert [paper["id"] for paper in papers] == ["paper-1"]
+
+
 def test_init_migrates_existing_database_with_notes_column(tmp_path):
     db_path = tmp_path / "papers.sqlite"
     with sqlite3.connect(db_path) as conn:
