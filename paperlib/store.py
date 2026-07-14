@@ -52,7 +52,7 @@ class PaperStore:
             )
             self._migrate_db(conn)
 
-    def import_papers_jsonl(self, path):
+    def import_papers_jsonl(self, path, conference=""):
         imported = 0
         with Path(path).open("r", encoding="utf-8") as handle:
             with self._connect() as conn:
@@ -60,11 +60,13 @@ class PaperStore:
                     if not line.strip():
                         continue
                     row = json.loads(line)
+                    if conference:
+                        row["conference"] = conference
                     self._upsert_paper(conn, row)
                     imported += 1
         return {"imported": imported}
 
-    def import_papers_csv(self, path):
+    def import_papers_csv(self, path, conference=""):
         imported = 0
         with Path(path).open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
@@ -72,6 +74,8 @@ class PaperStore:
                 for row in reader:
                     if not any(row.values()):
                         continue
+                    if conference:
+                        row["conference"] = conference
                     self._upsert_paper(conn, row)
                     imported += 1
         return {"imported": imported}

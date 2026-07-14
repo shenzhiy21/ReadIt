@@ -50,6 +50,71 @@ def test_api_imports_default_csv_when_jsonl_is_missing(tmp_path):
     assert response.get_json()["imported"] == 1
 
 
+def test_api_imports_selected_conference_with_source_key(tmp_path):
+    data_dir = tmp_path
+    raw_dir = data_dir / "raw" / "iclr2026"
+    raw_dir.mkdir(parents=True)
+    (raw_dir / "accepted_papers.jsonl").write_text(
+        '{"openreview_id":"paper-1","title":"ICLR Paper"}\n',
+        encoding="utf-8",
+    )
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=data_dir)
+    client = app.test_client()
+
+    response = client.post("/api/import/papers", json={"conference": "iclr2026"})
+    paper = client.get("/api/papers/paper-1").get_json()
+
+    assert response.status_code == 200
+    assert response.get_json()["imported"] == 1
+    assert response.get_json()["conferences"] == {"iclr2026": 1}
+    assert paper["conference"] == "iclr2026"
+
+
+def test_api_imports_all_available_conferences(tmp_path):
+    data_dir = tmp_path
+    for conference, title in (("iclr2026", "ICLR Paper"), ("icml2026", "ICML Paper")):
+        raw_dir = data_dir / "raw" / conference
+        raw_dir.mkdir(parents=True)
+        (raw_dir / "accepted_papers.jsonl").write_text(
+            f'{{"openreview_id":"{conference}-paper","title":"{title}"}}\n',
+            encoding="utf-8",
+        )
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=data_dir)
+    client = app.test_client()
+
+    response = client.post("/api/import/papers", json={"conference": "all"})
+
+    assert response.status_code == 200
+    assert response.get_json()["imported"] == 2
+    assert response.get_json()["conferences"] == {
+        "iclr2026": 1,
+        "icml2026": 1,
+    }
+
+
+def test_api_rejects_unknown_import_conference(tmp_path):
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+
+    response = client.post("/api/import/papers", json={"conference": "missing"})
+
+    assert response.status_code == 400
+    assert "Unknown conference" in response.get_json()["error"]
+
+
+def test_api_lists_papers_filtered_by_conference(tmp_path):
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+    store = app.config["STORE"]
+    store.upsert_paper({"id": "paper-1", "title": "A", "conference": "iclr2026"})
+    store.upsert_paper({"id": "paper-2", "title": "B", "conference": "icml2026"})
+
+    response = client.get("/api/papers?conference=iclr2026")
+
+    assert response.status_code == 200
+    assert [paper["id"] for paper in response.get_json()["papers"]] == ["paper-1"]
+
+
 def test_api_collection_membership_roundtrip(tmp_path):
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
     client = app.test_client()

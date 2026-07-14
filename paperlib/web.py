@@ -5,7 +5,8 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 
 from paperlib.config import DEFAULT_CONFERENCE, data_dir as default_data_dir
 from paperlib.config import default_db_path
-from paperlib.imports import find_paper_metadata
+from paperlib.crawlers.conferences import CONFERENCES, get_conference
+from paperlib.imports import find_paper_metadata, has_paper_metadata
 from paperlib.store import PaperStore
 
 
@@ -30,16 +31,24 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
     def handle_value_error(error):
         return jsonify({"error": str(error)}), 400
 
+    @app.errorhandler(KeyError)
+    def handle_key_error(error):
+        return jsonify({"error": str(error)}), 400
+
     @app.errorhandler(FileNotFoundError)
     def handle_file_not_found(error):
         return jsonify({"error": str(error)}), 404
 
     @app.post("/api/import/papers")
     def import_papers():
-        metadata_path = find_paper_metadata(data_dir, conference_key)
-        if metadata_path.suffix == ".jsonl":
-            return jsonify(store.import_papers_jsonl(metadata_path))
-        return jsonify(store.import_papers_csv(metadata_path))
+        payload = request.get_json(silent=True) or {}
+        selected = (payload.get("conference") or "all").strip()
+        if selected == "all":
+            result = _import_all_available_conferences(store, data_dir)
+        else:
+            get_conference(selected)
+            result = _import_one_conference(store, data_dir, selected)
+        return jsonify(result)
 
     @app.post("/api/import/collection")
     def import_collection():
@@ -100,6 +109,7 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
             collection_id=collection_id,
             uncollected=uncollected,
             multiple_collections=multiple,
+            conference=request.args.get("conference", ""),
             limit=limit,
             offset=offset,
         )
@@ -176,6 +186,37 @@ def _find_collection(store, collection_id):
         if collection["id"] == collection_id:
             return collection
     return None
+
+
+def _import_all_available_conferences(store, data_dir):
+    imported_by_conference = {}
+    for key in sorted(CONFERENCES):
+        if not has_paper_metadata(data_dir, key):
+            continue
+        imported_by_conference[key] = _import_one_conference(
+            store, data_dir, key
+        )["imported"]
+    if not imported_by_conference:
+        known = ", ".join(sorted(CONFERENCES))
+        raise FileNotFoundError(
+            f"Missing paper metadata for all known conferences: {known}"
+        )
+    return {
+        "imported": sum(imported_by_conference.values()),
+        "conferences": imported_by_conference,
+    }
+
+
+def _import_one_conference(store, data_dir, conference_key):
+    metadata_path = find_paper_metadata(data_dir, conference_key)
+    if metadata_path.suffix == ".jsonl":
+        result = store.import_papers_jsonl(metadata_path, conference=conference_key)
+    else:
+        result = store.import_papers_csv(metadata_path, conference=conference_key)
+    return {
+        "imported": result["imported"],
+        "conferences": {conference_key: result["imported"]},
+    }
 
 
 def _truthy(value):

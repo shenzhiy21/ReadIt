@@ -12,3 +12,11 @@ def find_paper_metadata(data_dir, conference_key):
     raise FileNotFoundError(
         f"Missing paper metadata: expected {jsonl_path} or {csv_path}"
     )
+
+
+def has_paper_metadata(data_dir, conference_key):
+    try:
+        find_paper_metadata(data_dir, conference_key)
+    except FileNotFoundError:
+        return False
+    return True
