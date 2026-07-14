@@ -64,6 +64,19 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
             result = store.import_collection_tsv(path)
         return jsonify(result)
 
+    @app.get("/api/conferences")
+    def list_conferences():
+        conferences = []
+        for key, config in sorted(CONFERENCES.items()):
+            conferences.append(
+                {
+                    "key": key,
+                    "name": config.name,
+                    "metadata_available": has_paper_metadata(data_dir, key),
+                }
+            )
+        return jsonify({"conferences": conferences})
+
     @app.get("/api/collections")
     def list_collections():
         return jsonify(store.list_collections())

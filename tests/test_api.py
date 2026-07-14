@@ -115,6 +115,22 @@ def test_api_lists_papers_filtered_by_conference(tmp_path):
     assert [paper["id"] for paper in response.get_json()["papers"]] == ["paper-1"]
 
 
+def test_api_lists_conferences_with_metadata_presence(tmp_path):
+    raw_dir = tmp_path / "raw" / "iclr2026"
+    raw_dir.mkdir(parents=True)
+    (raw_dir / "accepted_papers.jsonl").write_text("", encoding="utf-8")
+    app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
+    client = app.test_client()
+
+    response = client.get("/api/conferences")
+
+    assert response.status_code == 200
+    conferences = {item["key"]: item for item in response.get_json()["conferences"]}
+    assert conferences["iclr2026"]["name"] == "ICLR 2026"
+    assert conferences["iclr2026"]["metadata_available"] is True
+    assert conferences["icml2026"]["metadata_available"] is False
+
+
 def test_api_collection_membership_roundtrip(tmp_path):
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
     client = app.test_client()
