@@ -29,6 +29,7 @@ CONFERENCES = {
         ),
         fallback_status_venues=(
             ("Poster", "ICLR 2026 Poster"),
+            ("SPOT", "ICLR 2026 Spotlight"),
             ("Oral", "ICLR 2026 Oral"),
         ),
     ),

@@ -86,7 +86,7 @@ function renderConferences() {
 
   const allButton = document.createElement("button");
   allButton.type = "button";
-  allButton.className = "filter";
+  allButton.className = "conference-filter";
   allButton.classList.toggle("active", state.activeConference === "");
   allButton.textContent = "All conferences";
   allButton.addEventListener("click", () => setConferenceFilter(""));
@@ -95,7 +95,7 @@ function renderConferences() {
   for (const conference of state.conferences) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "filter conference-filter";
+    button.className = "conference-filter";
     button.classList.toggle("active", state.activeConference === conference.key);
     button.addEventListener("click", () => setConferenceFilter(conference.key));
 

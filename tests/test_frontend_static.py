@@ -19,6 +19,13 @@ def test_frontend_contains_conference_filter_behavior():
     assert "conference" in app_js
 
 
+def test_conference_filter_uses_separate_active_class():
+    app_js = Path("static/app.js").read_text(encoding="utf-8")
+
+    assert 'button.className = "conference-filter"' in app_js
+    assert "conference-filter active" not in app_js
+
+
 def test_notes_ui_does_not_render_markdown_preview():
     app_js = Path("static/app.js").read_text(encoding="utf-8")
     styles_css = Path("static/styles.css").read_text(encoding="utf-8")

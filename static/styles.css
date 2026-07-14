@@ -55,6 +55,7 @@ button:hover,
 
 button.primary,
 .filter.active,
+.conference-filter.active,
 .collection-item.active {
   background: var(--accent-soft);
   border-color: var(--accent);
@@ -159,7 +160,6 @@ a:focus {
 }
 
 .filter,
-.conference-filter,
 .collection-item {
   justify-content: flex-start;
   width: 100%;
@@ -168,6 +168,7 @@ a:focus {
 .conference-filter {
   gap: 8px;
   justify-content: space-between;
+  width: 100%;
 }
 
 .conference-status {

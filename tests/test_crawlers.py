@@ -28,6 +28,14 @@ def test_get_conference_returns_iclr2026_config():
     assert config.venueid == "ICLR.cc/2026/Conference"
 
 
+def test_iclr2026_fallback_includes_all_main_accepted_statuses():
+    config = get_conference("iclr2026")
+
+    assert ("Poster", "ICLR 2026 Poster") in config.fallback_status_venues
+    assert ("SPOT", "ICLR 2026 Spotlight") in config.fallback_status_venues
+    assert ("Oral", "ICLR 2026 Oral") in config.fallback_status_venues
+
+
 def test_conference_configs_have_display_names():
     assert get_conference("icml2026").name == "ICML 2026"
 
