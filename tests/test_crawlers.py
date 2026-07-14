@@ -13,6 +13,20 @@ def test_get_conference_returns_icml2026_config():
     assert config.venueid == "ICML.cc/2026/Conference"
 
 
+def test_get_conference_returns_iclr2026_config():
+    config = get_conference("iclr2026")
+
+    assert config.key == "iclr2026"
+    assert config.name == "ICLR 2026"
+    assert config.invitation == "ICLR.cc/2026/Conference/-/Submission"
+    assert "ICLR 2026 Poster" in config.venues
+    assert config.venueid == "ICLR.cc/2026/Conference"
+
+
+def test_conference_configs_have_display_names():
+    assert get_conference("icml2026").name == "ICML 2026"
+
+
 def test_get_conference_rejects_unknown_key():
     with pytest.raises(KeyError, match="Unknown conference"):
         get_conference("missing")

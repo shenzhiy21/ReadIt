@@ -4,14 +4,27 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class OpenReviewConference:
     key: str
+    name: str
     invitation: str
     venues: tuple[str, ...]
     venueid: str | None = None
 
 
 CONFERENCES = {
+    "iclr2026": OpenReviewConference(
+        key="iclr2026",
+        name="ICLR 2026",
+        invitation="ICLR.cc/2026/Conference/-/Submission",
+        venues=(
+            "ICLR 2026 Poster",
+            "ICLR 2026 Spotlight",
+            "ICLR 2026 Oral",
+        ),
+        venueid="ICLR.cc/2026/Conference",
+    ),
     "icml2026": OpenReviewConference(
         key="icml2026",
+        name="ICML 2026",
         invitation="ICML.cc/2026/Conference/-/Submission",
         venues=(
             "ICML 2026 oral",
