@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#172033">
     <title>Paper Collections</title>
     <link rel="stylesheet" href="/static/styles.css">
   </head>
@@ -10,39 +11,39 @@
     <div class="app-shell">
       <aside class="sidebar">
         <header class="app-header">
-          <h1>Paper Collections</h1>
-          <p id="statusLine">Local SQLite library</p>
+          <div class="brand-mark" aria-hidden="true">P</div>
+          <div class="brand-copy">
+            <h1>Paper Collections</h1>
+            <p>Research library</p>
+          </div>
         </header>
 
-        <section class="toolbar">
-          <button id="importPapersButton" type="button">Import all papers</button>
+        <section class="toolbar" aria-label="Library actions">
+          <button id="importPapersButton" class="primary import-button" type="button">
+            <span class="button-icon" aria-hidden="true">+</span>
+            Import papers
+          </button>
           <label class="file-button">
+            <span aria-hidden="true">&#8593;</span>
             Import TSV
             <input id="collectionFileInput" type="file" accept=".tsv">
           </label>
-          <a class="link-button" href="/api/export/collections">Export all</a>
+          <a class="link-button" href="/api/export/collections">
+            <span aria-hidden="true">&#8595;</span>
+            Export
+          </a>
         </section>
 
-        <form id="createCollectionForm" class="create-form">
-          <input
-            id="newCollectionName"
-            type="text"
-            autocomplete="off"
-            placeholder="New collection"
-            aria-label="New collection name"
-          >
-          <button type="submit">Create</button>
-        </form>
-
         <nav class="filter-list" aria-label="Paper filters">
+          <div class="section-title">Library</div>
           <button class="filter active" data-filter="all" type="button">
-            All papers
+            <span>All papers</span>
           </button>
           <button class="filter" data-filter="uncollected" type="button">
-            Uncollected
+            <span>Uncollected</span>
           </button>
           <button class="filter" data-filter="multiple" type="button">
-            Multiple collections
+            <span>In multiple lists</span>
           </button>
         </nav>
 
@@ -51,26 +52,51 @@
           <div id="publicationList" class="publication-list"></div>
         </section>
 
-        <section>
-          <div class="section-title">Collections</div>
+        <section class="collections-section">
+          <div class="section-heading">
+            <div class="section-title">Collections</div>
+          </div>
+          <form id="createCollectionForm" class="create-form">
+            <input
+              id="newCollectionName"
+              type="text"
+              autocomplete="off"
+              placeholder="New collection"
+              aria-label="New collection name"
+            >
+            <button type="submit" aria-label="Create collection">+</button>
+          </form>
           <div id="collectionList" class="collection-list"></div>
         </section>
+
+        <div class="sidebar-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <p id="statusLine">Local library ready</p>
+        </div>
       </aside>
 
       <main class="paper-panel">
-        <div class="search-row">
-          <input
-            id="searchInput"
-            type="search"
-            autocomplete="off"
-            placeholder="Search title, abstract, authors, venue, area"
-            aria-label="Search papers"
-          >
-          <button id="clearSearchButton" type="button">Clear</button>
-        </div>
+        <header class="content-header">
+          <div>
+            <p class="eyebrow">Your workspace</p>
+            <h2>Paper library</h2>
+          </div>
+          <div class="search-row">
+            <span class="search-icon" aria-hidden="true"></span>
+            <input
+              id="searchInput"
+              type="search"
+              autocomplete="off"
+              placeholder="Search papers, authors, venues..."
+              aria-label="Search papers"
+            >
+            <button id="clearSearchButton" class="clear-search" type="button">Clear</button>
+          </div>
+        </header>
+
         <div class="list-meta">
+          <span id="activeFilterLabel" class="view-title">All papers</span>
           <span id="paperCount">0 papers</span>
-          <span id="activeFilterLabel">All papers</span>
         </div>
         <div id="paperList" class="paper-list"></div>
         <div id="paginationControls" class="pagination-controls"></div>
@@ -78,8 +104,12 @@
 
       <aside class="detail-panel">
         <div id="paperDetail" class="paper-detail empty">
+          <div class="empty-illustration" aria-hidden="true">
+            <span></span>
+          </div>
+          <p class="eyebrow">Paper details</p>
           <h2>Select a paper</h2>
-          <p>Choose a paper from the list to manage its collections.</p>
+          <p>Choose a paper from your library to read its abstract, organize it, and add notes.</p>
         </div>
       </aside>
     </div>

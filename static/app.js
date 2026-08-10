@@ -438,7 +438,7 @@ function makeReadStatusTag(paper) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = `read-tag ${paper.is_read ? "read" : "unread"}`;
-  button.textContent = paper.is_read ? "Read" : "UnRead";
+  button.textContent = paper.is_read ? "Read" : "Unread";
   button.setAttribute("aria-pressed", paper.is_read ? "true" : "false");
   button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -460,7 +460,7 @@ async function toggleReadStatus(paper) {
     renderDetail(updated);
   }
   renderPapers();
-  setStatus(updated.is_read ? "Marked as Read" : "Marked as UnRead");
+  setStatus(updated.is_read ? "Marked as read" : "Marked as unread");
 }
 
 function addMeta(container, value) {
