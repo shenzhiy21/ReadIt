@@ -245,6 +245,25 @@ function renderPapers() {
       }
     }
 
+    if (state.activeFilter === "collection" && state.activeCollectionId) {
+      const removeButton = document.createElement("button");
+      removeButton.type = "button";
+      removeButton.className = "quick-remove-button danger";
+      removeButton.textContent = "Remove from collection";
+      removeButton.setAttribute("aria-label", `Remove ${paper.title || paper.id} from collection`);
+      removeButton.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        removeButton.disabled = true;
+        try {
+          await setMembership(paper.id, state.activeCollectionId, false);
+        } catch (error) {
+          removeButton.disabled = false;
+          showError(error);
+        }
+      });
+      badges.append(removeButton);
+    }
+
     card.append(title, meta, abstract, badges);
     dom.paperList.append(card);
   }
@@ -327,7 +346,7 @@ function renderDetail(paper) {
   const links = document.createElement("div");
   links.className = "detail-links";
   if (paper.url) {
-    links.append(makeExternalLink(paper.url, "OpenReview"));
+    links.append(makeExternalLink(paper.url, "Paper page"));
   }
   const pdfUrl = pdfLink(paper.pdf);
   if (pdfUrl) {
@@ -420,7 +439,7 @@ async function setMembership(paperId, collectionId, enabled) {
     method,
   });
   await refreshAll();
-  setStatus("Membership saved");
+  setStatus(enabled ? "Added to collection" : "Removed from collection");
 }
 
 async function saveNotes(paperId, notesMarkdown) {

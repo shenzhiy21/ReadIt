@@ -701,6 +701,14 @@ label:focus-within {
   margin-top: 12px;
 }
 
+.quick-remove-button {
+  font-size: 10px;
+  line-height: 1;
+  margin-left: auto;
+  min-height: 25px;
+  padding: 6px 9px;
+}
+
 .badge,
 .read-tag {
   border: 0;

@@ -56,3 +56,21 @@ def test_frontend_pages_paper_list_in_batches_of_ten():
     assert 'params.set("limit", String(PAGE_SIZE));' in app_js
     assert 'params.set("offset", String(state.page * PAGE_SIZE));' in app_js
     assert 'params.set("limit", "10000");' not in app_js
+
+
+def test_paper_source_link_uses_generic_label():
+    app_js = Path("static/app.js").read_text(encoding="utf-8")
+
+    assert 'makeExternalLink(paper.url, "Paper page")' in app_js
+    assert 'makeExternalLink(paper.url, "OpenReview")' not in app_js
+
+
+def test_collection_view_offers_quick_remove_on_each_paper():
+    app_js = Path("static/app.js").read_text(encoding="utf-8")
+    styles_css = Path("static/styles.css").read_text(encoding="utf-8")
+
+    assert 'state.activeFilter === "collection" && state.activeCollectionId' in app_js
+    assert 'removeButton.textContent = "Remove from collection"' in app_js
+    assert "event.stopPropagation();" in app_js
+    assert "await setMembership(paper.id, state.activeCollectionId, false);" in app_js
+    assert ".quick-remove-button" in styles_css
