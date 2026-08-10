@@ -99,7 +99,7 @@ def test_api_rejects_unknown_import_conference(tmp_path):
     response = client.post("/api/import/papers", json={"conference": "missing"})
 
     assert response.status_code == 400
-    assert "Unknown conference" in response.get_json()["error"]
+    assert "Unknown publication" in response.get_json()["error"]
 
 
 def test_api_lists_papers_filtered_by_conference(tmp_path):

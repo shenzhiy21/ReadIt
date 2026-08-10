@@ -5,7 +5,7 @@ from flask import Flask, Response, jsonify, request, send_from_directory
 
 from paperlib.config import DEFAULT_CONFERENCE, data_dir as default_data_dir
 from paperlib.config import default_db_path
-from paperlib.crawlers.conferences import CONFERENCES, get_conference
+from paperlib.crawlers.publications import PUBLICATIONS, get_publication
 from paperlib.imports import find_paper_metadata, has_paper_metadata
 from paperlib.store import PaperStore
 
@@ -44,10 +44,10 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
         payload = request.get_json(silent=True) or {}
         selected = (payload.get("conference") or "all").strip()
         if selected == "all":
-            result = _import_all_available_conferences(store, data_dir)
+            result = _import_all_available_publications(store, data_dir)
         else:
-            get_conference(selected)
-            result = _import_one_conference(store, data_dir, selected)
+            get_publication(selected)
+            result = _import_one_publication(store, data_dir, selected)
         return jsonify(result)
 
     @app.post("/api/import/collection")
@@ -67,7 +67,7 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
     @app.get("/api/conferences")
     def list_conferences():
         conferences = []
-        for key, config in sorted(CONFERENCES.items()):
+        for key, config in sorted(PUBLICATIONS.items()):
             conferences.append(
                 {
                     "key": key,
@@ -210,18 +210,18 @@ def _find_collection(store, collection_id):
     return None
 
 
-def _import_all_available_conferences(store, data_dir):
+def _import_all_available_publications(store, data_dir):
     imported_by_conference = {}
-    for key in sorted(CONFERENCES):
+    for key in sorted(PUBLICATIONS):
         if not has_paper_metadata(data_dir, key):
             continue
-        imported_by_conference[key] = _import_one_conference(
+        imported_by_conference[key] = _import_one_publication(
             store, data_dir, key
         )["imported"]
     if not imported_by_conference:
-        known = ", ".join(sorted(CONFERENCES))
+        known = ", ".join(sorted(PUBLICATIONS))
         raise FileNotFoundError(
-            f"Missing paper metadata for all known conferences: {known}"
+            f"Missing paper metadata for all known publications: {known}"
         )
     return {
         "imported": sum(imported_by_conference.values()),
@@ -229,7 +229,7 @@ def _import_all_available_conferences(store, data_dir):
     }
 
 
-def _import_one_conference(store, data_dir, conference_key):
+def _import_one_publication(store, data_dir, conference_key):
     metadata_path = find_paper_metadata(data_dir, conference_key)
     if metadata_path.suffix == ".jsonl":
         result = store.import_papers_jsonl(metadata_path, conference=conference_key)

@@ -10,19 +10,28 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from paperlib.config import data_dir
-from paperlib.crawlers.conferences import get_conference
+from paperlib.crawlers.dblp import fetch_journal_volume
 from paperlib.crawlers.openreview import fetch_conference
+from paperlib.crawlers.publications import DblpJournalVolume, get_publication
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("conference")
+    parser.add_argument("publications", nargs="+")
     parser.add_argument("--data-dir", default=str(data_dir()))
     args = parser.parse_args()
 
-    config = get_conference(args.conference)
-    summary = fetch_conference(config, Path(args.data_dir))
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    summaries = {}
+    for key in args.publications:
+        config = get_publication(key)
+        if isinstance(config, DblpJournalVolume):
+            summary = fetch_journal_volume(config, Path(args.data_dir))
+        else:
+            summary = fetch_conference(config, Path(args.data_dir))
+        summaries[key] = summary
+
+    output = next(iter(summaries.values())) if len(summaries) == 1 else summaries
+    print(json.dumps(output, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

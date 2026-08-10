@@ -55,6 +55,8 @@ Fetch configured conference metadata:
 ```powershell
 python tools/fetch_papers.py iclr2026
 python tools/fetch_papers.py icml2026
+python tools/fetch_papers.py tvcg2025
+python tools/fetch_papers.py tvcg2023 tvcg2024 tvcg2025 tvcg2026
 ```
 
 Each command writes:
@@ -69,8 +71,14 @@ The ICLR 2026 fetch first tries OpenReview's API. If that API requires challenge
 verification, it falls back to a public OpenReview-derived JSONL snapshot and
 filters to main-conference accepted papers only.
 
-To add another OpenReview conference, add a configuration entry in
-`paperlib/crawlers/conferences.py`.
+The TVCG 2023-2026 fetches use DBLP only. Each fetch parses the corresponding
+DBLP volume XML export and checks the result count against the DBLP HTML volume
+page before writing any files. A mismatch fails the fetch instead of producing
+a possibly incomplete dataset. Completed years require Issues 1-12; the active
+2026 volume requires continuous issues through DBLP's latest indexed issue.
+
+To add another source, add a configuration entry in
+`paperlib/crawlers/publications.py`.
 
 ## Import In The Web App
 

@@ -12,7 +12,38 @@ class OpenReviewConference:
     fallback_status_venues: tuple[tuple[str, str], ...] = ()
 
 
-CONFERENCES = {
+@dataclass(frozen=True)
+class DblpJournalVolume:
+    key: str
+    name: str
+    year: int
+    volume: int
+    expected_issues: tuple[str, ...]
+    html_url: str
+    xml_url: str
+
+
+def _tvcg_volume(year, volume, complete=True):
+    expected_issues = tuple(str(issue) for issue in range(1, 13)) if complete else ()
+    base_url = f"https://dblp.org/db/journals/tvcg/tvcg{volume}"
+    return DblpJournalVolume(
+        key=f"tvcg{year}",
+        name=f"TVCG {year}",
+        year=year,
+        volume=volume,
+        expected_issues=expected_issues,
+        html_url=f"{base_url}.html",
+        xml_url=f"{base_url}.xml",
+    )
+
+
+PUBLICATIONS = {
+    "tvcg2023": _tvcg_volume(2023, 29),
+    "tvcg2024": _tvcg_volume(2024, 30),
+    "tvcg2025": _tvcg_volume(2025, 31),
+    # The 2026 volume is still in progress. Validate issue continuity through
+    # the latest issue currently indexed by DBLP instead of requiring 1-12.
+    "tvcg2026": _tvcg_volume(2026, 32, complete=False),
     "iclr2026": OpenReviewConference(
         key="iclr2026",
         name="ICLR 2026",
@@ -43,13 +74,15 @@ CONFERENCES = {
             "ICML 2026 regular",
         ),
         venueid="ICML.cc/2026/Conference",
-    )
+    ),
 }
 
 
-def get_conference(key):
+def get_publication(key):
     try:
-        return CONFERENCES[key]
+        return PUBLICATIONS[key]
     except KeyError as error:
-        known = ", ".join(sorted(CONFERENCES))
-        raise KeyError(f"Unknown conference '{key}'. Known conferences: {known}") from error
+        known = ", ".join(sorted(PUBLICATIONS))
+        raise KeyError(
+            f"Unknown publication '{key}'. Known publications: {known}"
+        ) from error
