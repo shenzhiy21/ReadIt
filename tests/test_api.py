@@ -50,7 +50,7 @@ def test_api_imports_default_csv_when_jsonl_is_missing(tmp_path):
     assert response.get_json()["imported"] == 1
 
 
-def test_api_imports_selected_conference_with_source_key(tmp_path):
+def test_api_imports_selected_publication_with_source_key(tmp_path):
     data_dir = tmp_path
     raw_dir = data_dir / "raw" / "iclr2026"
     raw_dir.mkdir(parents=True)
@@ -61,16 +61,16 @@ def test_api_imports_selected_conference_with_source_key(tmp_path):
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=data_dir)
     client = app.test_client()
 
-    response = client.post("/api/import/papers", json={"conference": "iclr2026"})
+    response = client.post("/api/import/papers", json={"publication": "iclr2026"})
     paper = client.get("/api/papers/paper-1").get_json()
 
     assert response.status_code == 200
     assert response.get_json()["imported"] == 1
-    assert response.get_json()["conferences"] == {"iclr2026": 1}
+    assert response.get_json()["publications"] == {"iclr2026": 1}
     assert paper["conference"] == "iclr2026"
 
 
-def test_api_imports_all_available_conferences(tmp_path):
+def test_api_imports_all_available_publications(tmp_path):
     data_dir = tmp_path
     for conference, title in (("iclr2026", "ICLR Paper"), ("icml2026", "ICML Paper")):
         raw_dir = data_dir / "raw" / conference
@@ -82,37 +82,39 @@ def test_api_imports_all_available_conferences(tmp_path):
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=data_dir)
     client = app.test_client()
 
-    response = client.post("/api/import/papers", json={"conference": "all"})
+    response = client.post("/api/import/papers", json={"publication": "all"})
 
     assert response.status_code == 200
     assert response.get_json()["imported"] == 2
-    assert response.get_json()["conferences"] == {
+    assert response.get_json()["publications"] == {
         "iclr2026": 1,
         "icml2026": 1,
     }
 
 
-def test_api_rejects_unknown_import_conference(tmp_path):
+def test_api_rejects_unknown_import_publication(tmp_path):
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
     client = app.test_client()
 
-    response = client.post("/api/import/papers", json={"conference": "missing"})
+    response = client.post("/api/import/papers", json={"publication": "missing"})
 
     assert response.status_code == 400
     assert "Unknown publication" in response.get_json()["error"]
 
 
-def test_api_lists_papers_filtered_by_conference(tmp_path):
+def test_api_lists_papers_filtered_by_publication(tmp_path):
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
     client = app.test_client()
     store = app.config["STORE"]
     store.upsert_paper({"id": "paper-1", "title": "A", "conference": "iclr2026"})
     store.upsert_paper({"id": "paper-2", "title": "B", "conference": "icml2026"})
 
-    response = client.get("/api/papers?conference=iclr2026")
+    response = client.get("/api/papers?publication=iclr2026")
 
     assert response.status_code == 200
-    assert [paper["id"] for paper in response.get_json()["papers"]] == ["paper-1"]
+    papers = response.get_json()["papers"]
+    assert [paper["id"] for paper in papers] == ["paper-1"]
+    assert papers[0]["publication"] == "iclr2026"
 
 
 def test_api_lists_papers_with_total_for_pagination(tmp_path):
@@ -130,20 +132,22 @@ def test_api_lists_papers_with_total_for_pagination(tmp_path):
     assert [paper["id"] for paper in payload["papers"]] == ["paper-10", "paper-11"]
 
 
-def test_api_lists_conferences_with_metadata_presence(tmp_path):
+def test_api_lists_publications_with_metadata_presence(tmp_path):
     raw_dir = tmp_path / "raw" / "iclr2026"
     raw_dir.mkdir(parents=True)
     (raw_dir / "accepted_papers.jsonl").write_text("", encoding="utf-8")
     app = create_app(db_path=tmp_path / "papers.sqlite", data_dir=tmp_path)
     client = app.test_client()
 
-    response = client.get("/api/conferences")
+    response = client.get("/api/publications")
 
     assert response.status_code == 200
-    conferences = {item["key"]: item for item in response.get_json()["conferences"]}
-    assert conferences["iclr2026"]["name"] == "ICLR 2026"
-    assert conferences["iclr2026"]["metadata_available"] is True
-    assert conferences["icml2026"]["metadata_available"] is False
+    publications = {
+        item["key"]: item for item in response.get_json()["publications"]
+    }
+    assert publications["iclr2026"]["name"] == "ICLR 2026"
+    assert publications["iclr2026"]["metadata_available"] is True
+    assert publications["icml2026"]["metadata_available"] is False
 
 
 def test_api_collection_membership_roundtrip(tmp_path):

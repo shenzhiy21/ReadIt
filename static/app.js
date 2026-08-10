@@ -1,7 +1,7 @@
 const PAGE_SIZE = 10;
 
 const state = {
-  conferences: [],
+  publications: [],
   collections: [],
   papers: [],
   totalPapers: 0,
@@ -9,7 +9,7 @@ const state = {
   selectedPaperId: null,
   activeFilter: "all",
   activeCollectionId: null,
-  activeConference: "",
+  activePublication: "",
   query: "",
 };
 
@@ -19,7 +19,7 @@ const dom = {
   collectionFileInput: document.getElementById("collectionFileInput"),
   createCollectionForm: document.getElementById("createCollectionForm"),
   newCollectionName: document.getElementById("newCollectionName"),
-  conferenceList: document.getElementById("conferenceList"),
+  publicationList: document.getElementById("publicationList"),
   collectionList: document.getElementById("collectionList"),
   searchInput: document.getElementById("searchInput"),
   clearSearchButton: document.getElementById("clearSearchButton"),
@@ -44,7 +44,7 @@ function setStatus(message) {
 }
 
 async function refreshAll() {
-  await loadConferences();
+  await loadPublications();
   await loadCollections();
   await loadPapers();
   if (state.selectedPaperId) {
@@ -52,10 +52,10 @@ async function refreshAll() {
   }
 }
 
-async function loadConferences() {
-  const payload = await apiJson("/api/conferences");
-  state.conferences = payload.conferences || [];
-  renderConferences();
+async function loadPublications() {
+  const payload = await apiJson("/api/publications");
+  state.publications = payload.publications || [];
+  renderPublications();
 }
 
 async function loadCollections() {
@@ -70,8 +70,8 @@ async function loadPapers() {
   if (state.query) {
     params.set("q", state.query);
   }
-  if (state.activeConference) {
-    params.set("conference", state.activeConference);
+  if (state.activePublication) {
+    params.set("publication", state.activePublication);
   }
   if (state.activeFilter === "collection" && state.activeCollectionId) {
     params.set("collection_id", state.activeCollectionId);
@@ -94,36 +94,36 @@ async function loadPapers() {
   renderPapers();
 }
 
-function renderConferences() {
-  dom.conferenceList.replaceChildren();
+function renderPublications() {
+  dom.publicationList.replaceChildren();
 
   const allButton = document.createElement("button");
   allButton.type = "button";
-  allButton.className = "conference-filter";
-  allButton.classList.toggle("active", state.activeConference === "");
-  allButton.textContent = "All conferences";
-  allButton.addEventListener("click", () => setConferenceFilter(""));
-  dom.conferenceList.append(allButton);
+  allButton.className = "publication-filter";
+  allButton.classList.toggle("active", state.activePublication === "");
+  allButton.textContent = "All publications";
+  allButton.addEventListener("click", () => setPublicationFilter(""));
+  dom.publicationList.append(allButton);
 
-  for (const conference of state.conferences) {
+  for (const publication of state.publications) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "conference-filter";
-    button.classList.toggle("active", state.activeConference === conference.key);
-    button.addEventListener("click", () => setConferenceFilter(conference.key));
+    button.className = "publication-filter";
+    button.classList.toggle("active", state.activePublication === publication.key);
+    button.addEventListener("click", () => setPublicationFilter(publication.key));
 
     const name = document.createElement("span");
-    name.textContent = conference.name;
+    name.textContent = publication.name;
     button.append(name);
 
-    if (!conference.metadata_available) {
+    if (!publication.metadata_available) {
       const missing = document.createElement("span");
-      missing.className = "conference-status";
+      missing.className = "publication-status";
       missing.textContent = "No local data";
       button.append(missing);
     }
 
-    dom.conferenceList.append(button);
+    dom.publicationList.append(button);
   }
 }
 
@@ -218,7 +218,7 @@ function renderPapers() {
 
     const meta = document.createElement("div");
     meta.className = "paper-meta";
-    addMeta(meta, conferenceName(paper.conference));
+    addMeta(meta, publicationName(paper.publication));
     addMeta(meta, paper.venue);
     addMeta(meta, paper.primary_area);
     addMeta(meta, paper.authors);
@@ -316,7 +316,7 @@ function renderDetail(paper) {
   const meta = document.createElement("div");
   meta.className = "paper-meta";
   addMeta(meta, paper.id);
-  addMeta(meta, conferenceName(paper.conference));
+  addMeta(meta, publicationName(paper.publication));
   addMeta(meta, paper.venue);
   addMeta(meta, paper.primary_area);
   addMeta(meta, paper.authors);
@@ -521,10 +521,10 @@ function setCollectionFilter(collection) {
   loadPapers().catch(showError);
 }
 
-function setConferenceFilter(conferenceKey) {
-  state.activeConference = conferenceKey;
+function setPublicationFilter(publicationKey) {
+  state.activePublication = publicationKey;
   state.page = 0;
-  renderConferences();
+  renderPublications();
   loadPapers().catch(showError);
 }
 
@@ -544,20 +544,20 @@ function activeFilterLabel() {
   return "All papers";
 }
 
-function conferenceName(key) {
+function publicationName(key) {
   if (!key) {
     return "";
   }
-  const conference = state.conferences.find((item) => item.key === key);
-  return conference ? conference.name : key;
+  const publication = state.publications.find((item) => item.key === key);
+  return publication ? publication.name : key;
 }
 
 function importSummary(result) {
-  const entries = Object.entries(result.conferences || {});
+  const entries = Object.entries(result.publications || {});
   if (entries.length === 0) {
     return `Imported ${result.imported} papers`;
   }
-  const counts = entries.map(([key, count]) => `${conferenceName(key) || key}: ${count}`);
+  const counts = entries.map(([key, count]) => `${publicationName(key) || key}: ${count}`);
   return `Imported ${result.imported} papers (${counts.join(", ")})`;
 }
 
@@ -602,7 +602,7 @@ dom.importPapersButton.addEventListener("click", async () => {
     const result = await apiJson("/api/import/papers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conference: "all" }),
+      body: JSON.stringify({ publication: "all" }),
     });
     await refreshAll();
     setStatus(importSummary(result));

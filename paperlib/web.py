@@ -3,14 +3,14 @@ from pathlib import Path
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
-from paperlib.config import DEFAULT_CONFERENCE, data_dir as default_data_dir
+from paperlib.config import DEFAULT_PUBLICATION, data_dir as default_data_dir
 from paperlib.config import default_db_path
 from paperlib.crawlers.publications import PUBLICATIONS, get_publication
 from paperlib.imports import find_paper_metadata, has_paper_metadata
 from paperlib.store import PaperStore
 
 
-def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
+def create_app(db_path=None, data_dir=None, publication_key=DEFAULT_PUBLICATION):
     static_dir = Path(__file__).resolve().parents[1] / "static"
     app = Flask(__name__, static_folder=str(static_dir), static_url_path="/static")
     data_dir = Path(data_dir) if data_dir is not None else default_data_dir()
@@ -21,7 +21,7 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
     store.init_db()
     app.config["STORE"] = store
     app.config["DATA_DIR"] = data_dir
-    app.config["CONFERENCE_KEY"] = conference_key
+    app.config["PUBLICATION_KEY"] = publication_key
 
     @app.get("/")
     def index():
@@ -42,7 +42,9 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
     @app.post("/api/import/papers")
     def import_papers():
         payload = request.get_json(silent=True) or {}
-        selected = (payload.get("conference") or "all").strip()
+        selected = (
+            payload.get("publication") or payload.get("conference") or "all"
+        ).strip()
         if selected == "all":
             result = _import_all_available_publications(store, data_dir)
         else:
@@ -64,18 +66,23 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
             result = store.import_collection_tsv(path)
         return jsonify(result)
 
-    @app.get("/api/conferences")
-    def list_conferences():
-        conferences = []
+    @app.get("/api/publications")
+    def list_publications():
+        publications = []
         for key, config in sorted(PUBLICATIONS.items()):
-            conferences.append(
+            publications.append(
                 {
                     "key": key,
                     "name": config.name,
                     "metadata_available": has_paper_metadata(data_dir, key),
                 }
             )
-        return jsonify({"conferences": conferences})
+        return jsonify({"publications": publications})
+
+    @app.get("/api/conferences")
+    def list_conferences_legacy():
+        response = list_publications().get_json()
+        return jsonify({"conferences": response["publications"]})
 
     @app.get("/api/collections")
     def list_collections():
@@ -118,13 +125,15 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
         limit = request.args.get("limit", default=250, type=int)
         offset = request.args.get("offset", default=0, type=int)
         search = request.args.get("q", "")
-        conference = request.args.get("conference", "")
+        publication = request.args.get(
+            "publication", request.args.get("conference", "")
+        )
         papers = store.list_papers(
             search=search,
             collection_id=collection_id,
             uncollected=uncollected,
             multiple_collections=multiple,
-            conference=conference,
+            conference=publication,
             limit=limit,
             offset=offset,
         )
@@ -133,16 +142,18 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
             collection_id=collection_id,
             uncollected=uncollected,
             multiple_collections=multiple,
-            conference=conference,
+            conference=publication,
         )
-        return jsonify({"papers": papers, "total": total})
+        return jsonify(
+            {"papers": [_paper_for_api(paper) for paper in papers], "total": total}
+        )
 
     @app.get("/api/papers/<path:paper_id>")
     def get_paper(paper_id):
         paper = store.get_paper(paper_id)
         if paper is None:
             return jsonify({"error": "Paper not found"}), 404
-        return jsonify(paper)
+        return jsonify(_paper_for_api(paper))
 
     @app.patch("/api/papers/<path:paper_id>/notes")
     def update_paper_notes(paper_id):
@@ -152,7 +163,7 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
         paper = store.update_paper_notes(paper_id, payload["notes_markdown"])
         if paper is None:
             return jsonify({"error": "Paper not found"}), 404
-        return jsonify(paper)
+        return jsonify(_paper_for_api(paper))
 
     @app.patch("/api/papers/<path:paper_id>/read")
     def update_paper_read_status(paper_id):
@@ -164,7 +175,7 @@ def create_app(db_path=None, data_dir=None, conference_key=DEFAULT_CONFERENCE):
         paper = store.update_paper_read_status(paper_id, payload["is_read"])
         if paper is None:
             return jsonify({"error": "Paper not found"}), 404
-        return jsonify(paper)
+        return jsonify(_paper_for_api(paper))
 
     @app.post("/api/papers/<path:paper_id>/collections/<int:collection_id>")
     def add_paper_to_collection(paper_id, collection_id):
@@ -210,34 +221,40 @@ def _find_collection(store, collection_id):
     return None
 
 
+def _paper_for_api(paper):
+    result = dict(paper)
+    result["publication"] = result.get("conference", "")
+    return result
+
+
 def _import_all_available_publications(store, data_dir):
-    imported_by_conference = {}
+    imported_by_publication = {}
     for key in sorted(PUBLICATIONS):
         if not has_paper_metadata(data_dir, key):
             continue
-        imported_by_conference[key] = _import_one_publication(
+        imported_by_publication[key] = _import_one_publication(
             store, data_dir, key
         )["imported"]
-    if not imported_by_conference:
+    if not imported_by_publication:
         known = ", ".join(sorted(PUBLICATIONS))
         raise FileNotFoundError(
             f"Missing paper metadata for all known publications: {known}"
         )
     return {
-        "imported": sum(imported_by_conference.values()),
-        "conferences": imported_by_conference,
+        "imported": sum(imported_by_publication.values()),
+        "publications": imported_by_publication,
     }
 
 
-def _import_one_publication(store, data_dir, conference_key):
-    metadata_path = find_paper_metadata(data_dir, conference_key)
+def _import_one_publication(store, data_dir, publication_key):
+    metadata_path = find_paper_metadata(data_dir, publication_key)
     if metadata_path.suffix == ".jsonl":
-        result = store.import_papers_jsonl(metadata_path, conference=conference_key)
+        result = store.import_papers_jsonl(metadata_path, conference=publication_key)
     else:
-        result = store.import_papers_csv(metadata_path, conference=conference_key)
+        result = store.import_papers_csv(metadata_path, conference=publication_key)
     return {
         "imported": result["imported"],
-        "conferences": {conference_key: result["imported"]},
+        "publications": {publication_key: result["imported"]},
     }
 
 

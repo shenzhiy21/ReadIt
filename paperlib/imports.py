@@ -1,8 +1,8 @@
 from pathlib import Path
 
 
-def find_paper_metadata(data_dir, conference_key):
-    raw_dir = Path(data_dir) / "raw" / conference_key
+def find_paper_metadata(data_dir, publication_key):
+    raw_dir = Path(data_dir) / "raw" / publication_key
     jsonl_path = raw_dir / "accepted_papers.jsonl"
     csv_path = raw_dir / "accepted_papers.csv"
     if jsonl_path.exists():
@@ -14,9 +14,9 @@ def find_paper_metadata(data_dir, conference_key):
     )
 
 
-def has_paper_metadata(data_dir, conference_key):
+def has_paper_metadata(data_dir, publication_key):
     try:
-        find_paper_metadata(data_dir, conference_key)
+        find_paper_metadata(data_dir, publication_key)
     except FileNotFoundError:
         return False
     return True

@@ -2,13 +2,13 @@ from pathlib import Path
 
 import pytest
 
-from paperlib.config import default_db_path, raw_conference_dir
+from paperlib.config import default_db_path, raw_publication_dir
 from paperlib.imports import find_paper_metadata
 
 
 def test_default_paths_are_under_data():
     assert default_db_path() == Path("data") / "papers.sqlite"
-    assert raw_conference_dir("icml2026") == Path("data") / "raw" / "icml2026"
+    assert raw_publication_dir("icml2026") == Path("data") / "raw" / "icml2026"
 
 
 def test_find_paper_metadata_prefers_jsonl(tmp_path):

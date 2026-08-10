@@ -61,7 +61,7 @@ button:disabled {
 
 button.primary,
 .filter.active,
-.conference-filter.active,
+.publication-filter.active,
 .collection-item.active {
   background: var(--accent-soft);
   border-color: var(--accent);
@@ -159,7 +159,7 @@ a:focus {
 }
 
 .filter-list,
-.conference-list,
+.publication-list,
 .collection-list {
   display: grid;
   gap: 6px;
@@ -171,13 +171,13 @@ a:focus {
   width: 100%;
 }
 
-.conference-filter {
+.publication-filter {
   gap: 8px;
   justify-content: space-between;
   width: 100%;
 }
 
-.conference-status {
+.publication-status {
   color: var(--muted);
   font-size: 12px;
 }

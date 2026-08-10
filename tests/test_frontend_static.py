@@ -8,22 +8,24 @@ def test_frontend_uses_generic_paper_library_title():
     assert "Paper Collections" in index_html
 
 
-def test_frontend_contains_conference_filter_behavior():
+def test_frontend_contains_publication_filter_behavior():
     index_html = Path("static/index.html").read_text(encoding="utf-8")
     app_js = Path("static/app.js").read_text(encoding="utf-8")
 
-    assert "conferenceList" in index_html
-    assert "loadConferences" in app_js
-    assert "setConferenceFilter" in app_js
-    assert "/api/conferences" in app_js
-    assert "conference" in app_js
+    assert "publicationList" in index_html
+    assert "loadPublications" in app_js
+    assert "setPublicationFilter" in app_js
+    assert "/api/publications" in app_js
+    assert "publication" in app_js
+    assert "conference" not in index_html.casefold()
+    assert "conference" not in app_js.casefold()
 
 
-def test_conference_filter_uses_separate_active_class():
+def test_publication_filter_uses_separate_active_class():
     app_js = Path("static/app.js").read_text(encoding="utf-8")
 
-    assert 'button.className = "conference-filter"' in app_js
-    assert "conference-filter active" not in app_js
+    assert 'button.className = "publication-filter"' in app_js
+    assert "publication-filter active" not in app_js
 
 
 def test_notes_ui_does_not_render_markdown_preview():
