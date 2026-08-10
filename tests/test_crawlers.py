@@ -4,6 +4,7 @@ from paperlib.crawlers.dblp import (
     DblpCompletenessError,
     build_summary as build_dblp_summary,
     count_html_articles,
+    normalize_dblp_author_name,
     parse_dblp_xml,
     validate_completeness,
     write_outputs as write_dblp_outputs,
@@ -189,6 +190,21 @@ def test_parse_dblp_xml_extracts_volume_metadata():
     assert papers[1]["doi"] == ""
 
 
+def test_normalize_dblp_author_name_removes_homonym_suffix_only():
+    assert normalize_dblp_author_name("Yu Zhang 0043") == "Yu Zhang"
+    assert normalize_dblp_author_name("Wei Zeng 0004") == "Wei Zeng"
+    assert normalize_dblp_author_name("Agent 47") == "Agent 47"
+
+
+def test_parse_dblp_xml_cleans_author_name_and_preserves_pid():
+    xml = DBLP_XML.replace(b">Ada Example</author>", b">Ada Example 0043</author>")
+
+    papers = parse_dblp_xml(xml, expected_year=2025, expected_volume=31)
+
+    assert papers[0]["authors"][0] == "Ada Example"
+    assert papers[0]["author_pids"][0] == "11/a"
+
+
 def test_parse_dblp_xml_accepts_current_bht_volume_wrapper():
     wrapped = DBLP_XML.replace(
         b"<dblp>", b'<bht key="db/journals/tvcg/tvcg31.bht"><dblpcites><r>'
@@ -250,6 +266,9 @@ def test_dblp_outputs_preserve_all_records_and_summary(tmp_path):
 
     assert paths.jsonl.read_text(encoding="utf-8").count("\n") == 2
     assert summary["source"] == "DBLP only"
+    assert "four-digit homonym-disambiguation suffixes removed" in summary[
+        "author_name_normalization"
+    ]
     assert summary["representations_match"] is True
     assert summary["counts_by_issue"] == {"1": 1, "2": 1}
     assert summary["missing_required_fields"]["doi"] == 1

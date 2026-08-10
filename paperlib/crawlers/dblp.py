@@ -1,5 +1,6 @@
 import csv
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -15,6 +16,11 @@ from paperlib.crawlers.openreview import output_paths
 USER_AGENT = "paperlib-dblp-crawler/1.0 (metadata research)"
 TIMEOUT_SECONDS = 60
 MAX_ATTEMPTS = 3
+DBLP_AUTHOR_DISAMBIGUATION_SUFFIX = re.compile(r"\s+\d{4}$")
+AUTHOR_NAME_NORMALIZATION_NOTE = (
+    "DBLP four-digit homonym-disambiguation suffixes removed from display "
+    "names; author_pids retained"
+)
 
 
 class DblpCompletenessError(RuntimeError):
@@ -174,6 +180,7 @@ def build_summary(config, papers, html_article_count, paths):
         "source": "DBLP only",
         "source_xml": config.xml_url,
         "source_html": config.html_url,
+        "author_name_normalization": AUTHOR_NAME_NORMALIZATION_NOTE,
         "year": config.year,
         "volume": config.volume,
         "expected_issues": list(config.expected_issues),
@@ -250,7 +257,7 @@ def _normalize_article(element):
     authors = []
     author_pids = []
     for author in element.findall("author"):
-        authors.append(_text(author))
+        authors.append(normalize_dblp_author_name(_text(author)))
         author_pids.append(author.get("pid", "").strip())
 
     electronic_editions = [
@@ -281,6 +288,11 @@ def _normalize_article(element):
         # DBLP does not publish abstracts; keep the common app schema explicit.
         "abstract": "",
     }
+
+
+def normalize_dblp_author_name(name):
+    """Remove DBLP's four-digit homonym suffix from a displayed author name."""
+    return DBLP_AUTHOR_DISAMBIGUATION_SUFFIX.sub("", str(name).strip())
 
 
 def _text(element):

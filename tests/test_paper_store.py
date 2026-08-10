@@ -282,6 +282,27 @@ def test_import_tsv_creates_minimal_missing_paper(tmp_path):
     assert paper["collections"][0]["name"] == "new"
 
 
+def test_collection_papers_are_ordered_by_year_newest_first(tmp_path):
+    store = PaperStore(tmp_path / "papers.sqlite")
+    store.init_db()
+    papers = [
+        {"id": "unknown", "title": "A", "venue": "Workshop"},
+        {"id": "old", "title": "Z", "conference": "tvcg2023"},
+        {"id": "new-z", "title": "Z", "venue": "IEEE TVCG 2026"},
+        {"id": "new-a", "title": "A", "year": 2026},
+        {"id": "middle", "title": "M", "conference": "tvcg2025"},
+    ]
+    collection = store.create_collection("reading")
+    for paper in papers:
+        store.upsert_paper(paper)
+        store.add_paper_to_collection(paper["id"], collection["id"])
+
+    assert [
+        paper["id"]
+        for paper in store.list_papers(collection_id=collection["id"])
+    ] == ["new-a", "new-z", "middle", "old", "unknown"]
+
+
 def test_collection_crud_does_not_delete_papers(tmp_path):
     store = PaperStore(tmp_path / "papers.sqlite")
     store.init_db()

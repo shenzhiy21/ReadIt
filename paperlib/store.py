@@ -2,6 +2,7 @@ import json
 import sqlite3
 import csv
 import io
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -225,7 +226,13 @@ class PaperStore:
         """
         if where:
             query += " where " + " and ".join(where)
-        query += " order by lower(p.title), p.id"
+        if collection_id is not None:
+            year = "paper_year(p.raw_json, p.conference, p.venue)"
+            query += (
+                f" order by {year} is null, {year} desc, lower(p.title), p.id"
+            )
+        else:
+            query += " order by lower(p.title), p.id"
         if limit is not None:
             query += " limit ? offset ?"
             params.extend([limit, offset])
@@ -336,6 +343,7 @@ class PaperStore:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         conn.execute("pragma foreign_keys = on")
+        conn.create_function("paper_year", 3, _paper_year, deterministic=True)
         return conn
 
     def _migrate_db(self, conn):
@@ -559,6 +567,23 @@ def _paper_dict(row):
     paper = dict(row)
     paper["is_read"] = bool(paper["is_read"])
     return paper
+
+
+def _paper_year(raw_json, conference, venue):
+    try:
+        raw_year = json.loads(raw_json or "{}").get("year")
+        if raw_year is not None:
+            year = int(raw_year)
+            if 1000 <= year <= 9999:
+                return year
+    except (AttributeError, TypeError, ValueError, json.JSONDecodeError):
+        pass
+
+    for value in (conference, venue):
+        match = re.search(r"(?<!\d)(?:19|20)\d{2}(?!\d)", value or "")
+        if match:
+            return int(match.group())
+    return None
 
 
 def _now():

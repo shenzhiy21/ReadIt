@@ -76,6 +76,8 @@ DBLP volume XML export and checks the result count against the DBLP HTML volume
 page before writing any files. A mismatch fails the fetch instead of producing
 a possibly incomplete dataset. Completed years require Issues 1-12; the active
 2026 volume requires continuous issues through DBLP's latest indexed issue.
+DBLP's four-digit homonym-disambiguation suffixes are removed from displayed
+author names, while the stable DBLP identifiers remain in `author_pids`.
 
 To add another source, add a configuration entry in
 `paperlib/crawlers/publications.py`.
