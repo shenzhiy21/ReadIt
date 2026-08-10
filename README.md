@@ -30,10 +30,13 @@ data/
 
 ## Start
 
+Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/) first if
+it is not already available. Then create the project environment and install
+the locked dependencies:
+
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python -m pip install -r requirements.txt
-.\.venv\Scripts\python app.py
+uv sync
+uv run python app.py
 ```
 
 Open:
@@ -42,21 +45,18 @@ Open:
 http://127.0.0.1:5000
 ```
 
-If the current Python already has Flask and pytest installed, this also works:
-
-```powershell
-python app.py
-```
+`uv sync` creates `.venv` automatically. Later `uv run` commands keep the
+environment synchronized with `pyproject.toml` and `uv.lock`.
 
 ## Fetch Paper Metadata
 
 Fetch configured conference metadata:
 
 ```powershell
-python tools/fetch_papers.py iclr2026
-python tools/fetch_papers.py icml2026
-python tools/fetch_papers.py tvcg2025
-python tools/fetch_papers.py tvcg2023 tvcg2024 tvcg2025 tvcg2026
+uv run python tools/fetch_papers.py iclr2026
+uv run python tools/fetch_papers.py icml2026
+uv run python tools/fetch_papers.py tvcg2025
+uv run python tools/fetch_papers.py tvcg2023 tvcg2024 tvcg2025 tvcg2026
 ```
 
 Each command writes:
@@ -116,5 +116,5 @@ Deleting a collection does not delete papers from the library.
 ## Tests
 
 ```powershell
-python -m pytest -v
+uv run python -m pytest -v
 ```

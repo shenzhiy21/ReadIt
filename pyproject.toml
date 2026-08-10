@@ -1,0 +1,17 @@
+[project]
+name = "paper-collections"
+version = "0.1.0"
+description = "A local web app for reading and organizing conference papers."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0,<4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.4,<9",
+]
+
+[tool.uv]
+package = false
