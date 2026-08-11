@@ -15,6 +15,7 @@ env/
 
 # Local app state
 data/
+notebooks/
 papers.sqlite
 *.sqlite
 *.sqlite3
